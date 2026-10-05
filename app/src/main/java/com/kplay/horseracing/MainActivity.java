@@ -1,4 +1,4 @@
-package com.kplay.horseracing;
+package com.kplay.horseracing.gumvit;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
