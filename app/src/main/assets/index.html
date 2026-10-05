@@ -1,3 +1,41 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>경마 배당 역산 분석</title><link rel="stylesheet" href="style.css"></head>
-<body><header><div><b>🏇 경마 배당판 역산 분석</b><small>Android · Local SQLite</small></div><span id="statusBadge">대기</span></header><nav id="tabs"></nav><main id="app"></main><div id="toast"></div><script src="analysis.js"></script><script src="app.js"></script><script>paste=function(){return ''};render();</script></body></html>
+<body><header><div><b>🏇 경마 배당판 역산 분석</b><small>Android · Local SQLite</small></div><span id="statusBadge">대기</span></header><nav id="tabs"></nav><main id="app"></main><div id="toast"></div><script src="analysis.js"></script><script src="app.js"></script><script>
+paste=function(){return ''};
+start=function(){
+  if(!validBoth())return toast('20분 전/5분 전 배당을 모두 입력하세요.');
+  S.step=3;render();
+  const logs=['유효성 검사 완료','점유율 변환','Late Money Index 계산','승식 교차 분석','후보 조합 생성'];
+  let i=0;
+  const t=setInterval(()=>{
+    const box=$('#logs'); if(!box){clearInterval(t);return;}
+    box.innerHTML+=`<div class="log">✓ ${logs[i]}</div>`;
+    $('#bar').style.width=`${(i+1)*20}%`; i++;
+    if(i===logs.length){
+      clearInterval(t);
+      S.result=RacingAnalysis.analyze({
+        t20Odds:S.t20.map(Number),
+        t5Odds:S.t5.map(Number),
+        popularity:S.horses.map(h=>Number(h.popularity)||null),
+        horseNumbers:S.horses.map(h=>Number(h.number))
+      });
+      S.dirty=false; S.step=S.result.ok?4:2; setTimeout(render,150);
+    }
+  },100);
+};
+const _bind=bind;
+bind=function(){
+  _bind();
+  const f=[...document.querySelectorAll('[data-odds="t5"]')];
+  f.forEach((e,idx)=>{
+    e.addEventListener('change',()=>{
+      S.t5[+e.dataset.i]=e.value;
+      if(idx===f.length-1&&validBoth()&&S.step===2) setTimeout(start,80);
+    });
+    e.addEventListener('keydown',ev=>{
+      if(ev.key==='Enter'&&idx===f.length-1&&validBoth()&&S.step===2){ev.preventDefault();e.blur();setTimeout(start,80);}
+    });
+  });
+};
+render();
+</script></body></html>
