@@ -1,4 +1,4 @@
-package com.kplay.horseracing;
+package com.kplay.horseracing.gumvit;
 
 import android.webkit.JavascriptInterface;
 import org.jsoup.Jsoup;
