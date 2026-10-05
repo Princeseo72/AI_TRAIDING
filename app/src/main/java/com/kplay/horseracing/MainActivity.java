@@ -26,6 +26,7 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new StorageBridge(this), "AndroidStore");
+        webView.addJavascriptInterface(new GumvitBridge(), "AndroidRace");
         webView.loadUrl("file:///android_asset/index.html");
     }
 
