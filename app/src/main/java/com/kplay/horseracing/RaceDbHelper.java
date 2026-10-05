@@ -1,4 +1,4 @@
-package com.kplay.horseracing;
+package com.kplay.horseracing.gumvit;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
