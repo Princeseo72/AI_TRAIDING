@@ -34,7 +34,6 @@ assert(!mismatch.ok,'mismatched mandatory WIN selections should fail');
 let bad=A.analyzeRace({horseNumbers:[1,2],pools:{WIN:{T20:[{key:'1',odds:2},{key:'2',odds:0}],T5:[{key:'1',odds:2},{key:'2',odds:3}]}}});
 assert(!bad.ok,'invalid odds accepted');
 
-// UI contract
 const app=fs.readFileSync('./app/src/main/assets/app.js','utf8');
 const html=fs.readFileSync('./app/src/main/assets/index.html','utf8');
 for(const label of ['QUINELLA','EXACTA','TRIO','TRIFECTA'])assert(app.includes(label),`UI missing ${label} pool`);
@@ -42,5 +41,12 @@ assert(app.includes('analyzeRace'),'UI must call multi-pool analyzeRace');
 assert(app.includes('INSUFFICIENT_DATA'),'UI must render insufficient pool state');
 assert(!app.includes('세로 붙여넣기'),'vertical paste UI must be removed');
 assert(!html.includes('paste=function'),'legacy paste override must be removed');
+
+const db=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/RaceDbHelper.java','utf8');
+const storage=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
+for(const table of ['races','horses','pool_snapshots','selection_metrics','horse_metrics','analysis_results','analysis_history'])assert(db.includes(`CREATE TABLE ${table}`),`DB missing ${table}`);
+assert(/DB_VERSION\s*=\s*[2-9]/.test(db),'DB schema version must be upgraded');
+assert(storage.includes('approved'.concat('".equals'))||storage.includes('"approved".equals'),'saveAnalysis must explicitly require approved status');
+assert(storage.includes('analysisVersion'),'saveAnalysis must require analysis version');
 
 console.log('ALL MULTI-POOL ANALYSIS TESTS PASSED');
