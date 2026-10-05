@@ -1,15 +1,15 @@
 plugins { id 'com.android.application' }
 
 android {
-    namespace 'com.kplay.horseracing'
+    namespace 'com.kplay.horseracing.gumvit'
     compileSdk 35
 
     defaultConfig {
         applicationId 'com.kplay.horseracing.gumvit'
-        minSdk 26
+        minSdk 23
         targetSdk 35
-        versionCode 3
-        versionName '1.1.1'
+        versionCode 4
+        versionName '1.1.4'
     }
 }
 
