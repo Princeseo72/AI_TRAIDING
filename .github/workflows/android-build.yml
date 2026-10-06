@@ -35,8 +35,11 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Run analysis tests
+      - name: Run analysis and exclusion tests
         run: node test-analysis.js && node test-exclusion.js
+
+      - name: Run all menu bridge tests
+        run: node test-menu.js
 
       - name: Run branding and tablet tests
         run: node test-branding.js
@@ -55,12 +58,12 @@ jobs:
           APPID=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest application-id "$APK")
           echo "minSdk=$MINSDK applicationId=$APPID"
           test "$MINSDK" -le 29
-          test "$APPID" = "com.kplay.horseracing.crosspool.v241"
+          test "$APPID" = "com.kplay.horseracing.crosspool.v242"
           ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HorseRacingOddsAnalyzer-v2.4.1-Pegasus
+          name: HorseRacingOddsAnalyzer-v2.4.2-Pegasus
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
