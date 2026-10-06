@@ -1,0 +1,28 @@
+const fs=require('fs');
+function assert(c,m){if(!c)throw new Error(m)}
+const manifest=fs.readFileSync('./app/src/main/AndroidManifest.xml','utf8');
+const intro=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/IntroActivity.java','utf8');
+const layout=fs.readFileSync('./app/src/main/res/layout/activity_intro.xml','utf8');
+const gradle=fs.readFileSync('./app/build.gradle','utf8');
+const icon='./app/src/main/res/mipmap-nodpi/ic_launcher_pegasus.jpg';
+const splash='./app/src/main/res/drawable-nodpi/pegasus_intro_logo.jpg';
+assert(fs.existsSync(icon),'pink launcher icon binary missing');
+assert(fs.existsSync(splash),'green intro binary missing');
+assert(fs.readFileSync(icon).compare(fs.readFileSync(splash))!==0,'launcher and intro must be different assets');
+assert(manifest.includes('android:icon="@mipmap/ic_launcher_pegasus"'),'launcher icon manifest entry missing');
+assert(manifest.includes('android:roundIcon="@mipmap/ic_launcher_pegasus"'),'round launcher icon missing');
+assert(manifest.includes('android:name=".IntroActivity"'),'IntroActivity missing');
+assert(manifest.includes('android.intent.category.LAUNCHER'),'IntroActivity not configured as launcher');
+assert((manifest.match(/screenOrientation="unspecified"/g)||[]).length>=2,'tablet rotation support missing');
+assert(intro.includes('setScaleX(0.55f)')&&intro.includes('setScaleY(0.55f)'),'intro start zoom scale incorrect');
+assert(intro.includes('.scaleX(1.0f)')&&intro.includes('.scaleY(1.0f)'),'intro end zoom scale incorrect');
+assert(intro.includes('setDuration(1200)'),'intro duration missing');
+assert(intro.includes('DecelerateInterpolator'),'intro decelerate animation missing');
+assert(intro.includes('DisplayMetrics'),'tablet responsive sizing missing');
+assert(intro.includes('dm.widthPixels * 0.80f')&&intro.includes('dm.heightPixels * 0.72f'),'tablet viewport constraints missing');
+assert(layout.includes('@drawable/pegasus_intro_logo'),'green intro resource not wired');
+assert(layout.includes('#2F4D32'),'green intro background missing');
+assert(gradle.includes("applicationId 'com.kplay.horseracing.crosspool.v24'"),'v2.4 package id missing');
+assert(gradle.includes("minSdk 23"),'minSdk must remain Android 6+ / Android 10 compatible');
+assert(gradle.includes("versionName '2.4.0'"),'v2.4 version missing');
+console.log('PEGASUS V2.4 BRANDING/TABLET STATIC TESTS PASSED');
