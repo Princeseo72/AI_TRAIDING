@@ -5,7 +5,16 @@ const gum=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/GumvitBridg
 const store=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
 const main=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/MainActivity.java','utf8');
 const checks=[
- ['경주 선택',"steps=['경주 선택'"],['app']],['20분 입력',"20분 전 배당",['app']],['5분 입력',"5분 전 배당",['app']],['재분석',"분석 재실행",['app']],['검빛 대조',"검빛 경주 대조검증",['app']],['경주결과 대조',"경주결과 대조",['app']],['빠른 불러오기',"빠르게 불러오기",['app']],['성능 재검증',"성능 재검증",['app']],['데이터 정리',"데이터 정리",['app']],['종료',"종료",['app']]
+ ['경주 선택',"steps=['경주 선택'"],
+ ['20분 입력','20분 전 배당'],
+ ['5분 입력','5분 전 배당'],
+ ['재분석','분석 재실행'],
+ ['검빛 대조','검빛 경주 대조검증'],
+ ['경주결과 대조','경주결과 대조'],
+ ['빠른 불러오기','빠르게 불러오기'],
+ ['성능 재검증','성능 재검증'],
+ ['데이터 정리','데이터 정리'],
+ ['종료','종료']
 ];
 for(const [n,t] of checks)assert(app.includes(t),`${n} menu missing`);
 for(const fn of ['fetchRace','verifyRace','fetchRaceResult'])assert(gum.includes(fn),`Gumvit ${fn} missing`);
