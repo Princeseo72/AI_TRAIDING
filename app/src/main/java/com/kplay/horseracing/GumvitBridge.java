@@ -153,7 +153,7 @@ public class GumvitBridge {
     }
 
     private static Double payoutOdd(String text, String label) {
-        Matcher m = Pattern.compile(Pattern.quote(label) + "\\s*:\\s*[^0-9]*([0-9]+(?:\\.[0-9]+)?)").matcher(text);
+        Matcher m = Pattern.compile("배당률.*?" + Pattern.quote(label) + "\\s*:\\s*[^0-9]*([0-9]+(?:\\.[0-9]+)?)").matcher(text);
         return m.find() ? Double.parseDouble(m.group(1)) : null;
     }
 
