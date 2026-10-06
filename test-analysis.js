@@ -41,12 +41,27 @@ assert(app.includes('analyzeRace'),'UI must call multi-pool analyzeRace');
 assert(app.includes('INSUFFICIENT_DATA'),'UI must render insufficient pool state');
 assert(!app.includes('세로 붙여넣기'),'vertical paste UI must be removed');
 assert(!html.includes('paste=function'),'legacy paste override must be removed');
+assert(app.includes('검빛 경주 대조검증'),'post-analysis Gumvit verification menu missing');
+assert(app.includes('analysisEpoch'),'reanalysis must invalidate stale async result');
+assert(app.includes('loadAnalysis'),'history must support fast reload');
+assert(app.includes('healthCheck'),'maintenance/performance check missing');
+assert(app.includes('cleanupData'),'data cleanup missing');
+assert(app.includes('closeApp'),'exit control missing');
+
+const gumvit=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/GumvitBridge.java','utf8');
+for(const token of ['requestedDate','actualDate','requestedRaceNo','actualRaceNo','excluded','active'])assert(gumvit.includes(token),`Gumvit validation missing ${token}`);
+assert(gumvit.includes('경주 정보 불일치'),'Gumvit must reject mismatched race page');
 
 const db=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/RaceDbHelper.java','utf8');
 const storage=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
 for(const table of ['races','horses','pool_snapshots','selection_metrics','horse_metrics','analysis_results','analysis_history'])assert(db.includes(`CREATE TABLE ${table}`),`DB missing ${table}`);
 assert(/DB_VERSION\s*=\s*[2-9]/.test(db),'DB schema version must be upgraded');
-assert(storage.includes('approved'.concat('".equals'))||storage.includes('"approved".equals'),'saveAnalysis must explicitly require approved status');
+assert(storage.includes('"approved".equals'),'saveAnalysis must explicitly require approved status');
 assert(storage.includes('analysisVersion'),'saveAnalysis must require analysis version');
+for(const method of ['getAnalysis','healthCheck','cleanupData'])assert(storage.includes(method),`StorageBridge missing ${method}`);
+
+const main=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/MainActivity.java','utf8');
+assert(main.includes('AndroidApp'),'MainActivity must expose app control bridge');
+assert(main.includes('finishAndRemoveTask')||main.includes('finishAffinity'),'app control must support real exit');
 
 console.log('ALL MULTI-POOL ANALYSIS TESTS PASSED');
