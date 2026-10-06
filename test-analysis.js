@@ -44,6 +44,11 @@ assert(!html.includes('paste=function'),'legacy paste override must be removed')
 assert(app.includes('검빛 경주 대조검증'),'post-analysis Gumvit verification menu missing');
 assert(app.includes('analysisEpoch'),'reanalysis must invalidate stale async result');
 assert(app.includes('loadAnalysis'),'history must support fast reload');
+assert(app.includes('빠르게 불러오기'),'history quick reload button missing');
+assert(app.includes('fetchRaceResult'),'post-race result fetch UI missing');
+assert(app.includes('경주결과 대조'),'post-race comparison menu missing');
+assert(app.includes('착순'),'post-race finish display missing');
+assert(app.includes('확정배당'),'post-race payout display missing');
 assert(app.includes('healthCheck'),'maintenance/performance check missing');
 assert(app.includes('cleanupData'),'data cleanup missing');
 assert(app.includes('closeApp'),'exit control missing');
@@ -51,14 +56,19 @@ assert(app.includes('closeApp'),'exit control missing');
 const gumvit=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/GumvitBridge.java','utf8');
 for(const token of ['requestedDate','actualDate','requestedRaceNo','actualRaceNo','excluded','active'])assert(gumvit.includes(token),`Gumvit validation missing ${token}`);
 assert(gumvit.includes('경주 정보 불일치'),'Gumvit must reject mismatched race page');
+assert(gumvit.includes('select("s,strike')||gumvit.includes("select(\"s,strike"),'scratch detection must inspect descendant strike/s tags');
+assert(gumvit.includes('fetchRaceResult'),'GumvitBridge must fetch official race result page');
+assert(gumvit.includes('result_detail.html'),'GumvitBridge must use result detail endpoint');
+assert(gumvit.includes('payouts'),'result parser must expose payouts');
+assert(gumvit.includes('finishers'),'result parser must expose finishers');
 
 const db=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/RaceDbHelper.java','utf8');
 const storage=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
-for(const table of ['races','horses','pool_snapshots','selection_metrics','horse_metrics','analysis_results','analysis_history'])assert(db.includes(`CREATE TABLE ${table}`),`DB missing ${table}`);
-assert(/DB_VERSION\s*=\s*[2-9]/.test(db),'DB schema version must be upgraded');
+for(const table of ['races','horses','pool_snapshots','selection_metrics','horse_metrics','analysis_results','analysis_history','race_outcomes'])assert(db.includes(`CREATE TABLE ${table}`),`DB missing ${table}`);
+assert(/DB_VERSION\s*=\s*[3-9]/.test(db),'DB schema version must include race outcomes');
 assert(storage.includes('"approved".equals'),'saveAnalysis must explicitly require approved status');
 assert(storage.includes('analysisVersion'),'saveAnalysis must require analysis version');
-for(const method of ['getAnalysis','healthCheck','cleanupData'])assert(storage.includes(method),`StorageBridge missing ${method}`);
+for(const method of ['getAnalysis','healthCheck','cleanupData','attachRaceResult'])assert(storage.includes(method),`StorageBridge missing ${method}`);
 
 const main=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/MainActivity.java','utf8');
 assert(main.includes('AndroidApp'),'MainActivity must expose app control bridge');
