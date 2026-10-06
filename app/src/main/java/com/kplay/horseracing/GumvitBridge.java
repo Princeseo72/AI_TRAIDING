@@ -70,6 +70,44 @@ public class GumvitBridge {
                 .get();
     }
 
+    private static int indexOfHeader(Elements cells, String label) {
+        for (int i=0;i<cells.size();i++) if (cells.get(i).text().replace(" ", "").contains(label)) return i;
+        return -1;
+    }
+
+    private Set<Integer> excludedNumbersFromResult(String date, String region, int raceNo) throws Exception {
+        String url = "https://www.gumvit.com/statv40/result_detail.html?loc=" + code(region) + "&race=" + raceNo + "&racedate=" + date;
+        Document doc = get(url);
+        String parsedDate = actualDate(doc);
+        int parsedRace = actualRaceNo(doc);
+        if (!date.equals(parsedDate) || raceNo != parsedRace) return new HashSet<>();
+
+        Set<Integer> excluded = new HashSet<>();
+        for (Element table : doc.select("table")) {
+            Element headerRow = null;
+            for (Element tr : table.select("tr")) {
+                String x = tr.text().replace(" ", "");
+                if (x.contains("순위") && x.contains("마번") && x.contains("마명")) { headerRow = tr; break; }
+            }
+            if (headerRow == null) continue;
+            Elements headers = headerRow.select("th,td");
+            int iRank = indexOfHeader(headers, "순위"), iNo = indexOfHeader(headers, "마번");
+            if (iRank < 0 || iNo < 0) continue;
+            for (Element tr : table.select("tr")) {
+                if (tr == headerRow) continue;
+                Elements td = tr.select("td");
+                if (td.size() <= Math.max(iRank, iNo)) continue;
+                String rankText = td.get(iRank).text().trim();
+                String noText = td.get(iNo).text().trim();
+                if (!noText.matches("\\d{1,2}")) continue;
+                if (rankText.startsWith("취") || tr.text().contains("출전제외") || tr.text().contains("출전취소") || isExcluded(tr)) {
+                    excluded.add(Integer.parseInt(noText));
+                }
+            }
+        }
+        return excluded;
+    }
+
     private JSONObject fetch(String date, String region, int raceNo) throws Exception {
         String loc = code(region);
         String url = "https://www.gumvit.com/statv40/chulma_detail.html?loc=" + loc
@@ -84,6 +122,10 @@ public class GumvitBridge {
         if (!requestedDate.equals(parsedDate) || requestedRaceNo != parsedRace) {
             throw new Exception("경주 정보 불일치: 요청 " + requestedDate + " " + requestedRaceNo + "R / 검빛 " + parsedDate + " " + parsedRace + "R");
         }
+
+        Set<Integer> resultExcluded = new HashSet<>();
+        try { resultExcluded.addAll(excludedNumbersFromResult(date, region, raceNo)); }
+        catch (Exception ignored) { /* 경주 전에는 결과 페이지가 없으므로 출전표 기준으로 계속 진행 */ }
 
         JSONArray horses = new JSONArray();
         JSONArray excluded = new JSONArray();
@@ -106,7 +148,8 @@ public class GumvitBridge {
             if (name.isEmpty() || "마명".equals(name)) continue;
             seen.add(number);
 
-            boolean active = !isExcluded(tr);
+            boolean resultPageExcluded = resultExcluded.contains(number);
+            boolean active = !isExcluded(tr) && !resultPageExcluded;
             JSONObject h = new JSONObject();
             h.put("number", number);
             h.put("name", name);
@@ -115,6 +158,7 @@ public class GumvitBridge {
             h.put("jockey", td.size() > 4 ? td.get(4).text().trim() : "");
             h.put("active", active);
             h.put("excluded", !active);
+            h.put("excludeSource", resultPageExcluded ? "RESULT" : (!active ? "ENTRY" : ""));
             StringBuilder tail = new StringBuilder();
             for (int i = 5; i < td.size(); i++) {
                 String x = td.get(i).text().trim();
@@ -145,11 +189,6 @@ public class GumvitBridge {
         out.put("horses", horses);
         out.put("excludedHorses", excluded);
         return out;
-    }
-
-    private static int indexOfHeader(Elements cells, String label) {
-        for (int i=0;i<cells.size();i++) if (cells.get(i).text().replace(" ", "").contains(label)) return i;
-        return -1;
     }
 
     private static Double payoutOdd(String text, String label) {
