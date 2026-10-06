@@ -6,13 +6,14 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public class RaceDbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "horse_racing_analysis.db";
-    private static final int DB_VERSION = 2;
+    private static final int DB_VERSION = 3;
     public RaceDbHelper(Context context) { super(context, DB_NAME, null, DB_VERSION); }
 
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE analysis_records (id INTEGER PRIMARY KEY AUTOINCREMENT,race_date TEXT NOT NULL,region TEXT NOT NULL,race_number INTEGER NOT NULL,status TEXT NOT NULL,market_center INTEGER,late_money INTEGER,payload_json TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
         db.execSQL("CREATE INDEX idx_analysis_race ON analysis_records(race_date, region, race_number)");
         createV2Tables(db);
+        createV3Tables(db);
     }
 
     private void createV2Tables(SQLiteDatabase db) {
@@ -28,7 +29,13 @@ public class RaceDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX idx_horse_metrics_race ON horse_metrics(race_id,horse_number)");
     }
 
+    private void createV3Tables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE race_outcomes (id INTEGER PRIMARY KEY AUTOINCREMENT,analysis_record_id INTEGER NOT NULL UNIQUE,race_date TEXT NOT NULL,region TEXT NOT NULL,race_number INTEGER NOT NULL,result_json TEXT NOT NULL,fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE INDEX idx_race_outcomes_race ON race_outcomes(race_date,region,race_number)");
+    }
+
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) createV2Tables(db);
+        if (oldVersion < 3) createV3Tables(db);
     }
 }
