@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F20CB5">
+
+    <ImageView
+        android:id="@+id/introLogo"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_gravity="center"
+        android:adjustViewBounds="true"
+        android:contentDescription="PEGASUS 2026"
+        android:scaleType="fitCenter"
+        android:src="@drawable/pegasus_intro_logo" />
+
+</FrameLayout>
