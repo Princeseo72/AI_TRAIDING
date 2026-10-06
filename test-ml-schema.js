@@ -3,7 +3,7 @@ function assert(c,m){if(!c)throw new Error(m)}
 const db=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/RaceDbHelper.java','utf8');
 const store=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
 for(const t of ['ml_models','ml_training_examples','ml_training_events'])assert(db.includes(t),`${t} missing`);
-assert(db.includes('UNIQUE(analysis_record_id)')||db.includes('UNIQUE(race_id,analysis_record_id)'),'training uniqueness missing');
+assert(db.includes('UNIQUE(analysis_record_id)')||db.includes('UNIQUE(race_id,analysis_record_id)')||db.includes('analysis_record_id INTEGER NOT NULL UNIQUE'),'training uniqueness missing');
 for(const fn of ['getActiveModel','savePredictionSnapshot','getMlStatus','recordTrainingEvent'])assert(store.includes(fn),`${fn} bridge missing`);
 assert(store.includes('prediction_snapshot_json'),'immutable prediction snapshot missing');
 assert(store.includes("status='ACTIVE'")||store.includes('status=\"ACTIVE\"'),'ACTIVE model query missing');
