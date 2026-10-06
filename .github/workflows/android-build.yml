@@ -35,18 +35,32 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Run JavaScript analysis tests
+      - name: Run analysis tests
         run: node test-analysis.js
+
+      - name: Run v2.4 branding and tablet tests
+        run: node test-branding.js
 
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Verify APK exists
-        run: test -f app/build/outputs/apk/debug/app-debug.apk && ls -lh app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK package and Android 10 compatibility
+        shell: bash
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          unzip -t "$APK" >/dev/null
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose "$APK"
+          MINSDK=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest min-sdk "$APK")
+          APPID=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest application-id "$APK")
+          echo "minSdk=$MINSDK applicationId=$APPID"
+          test "$MINSDK" -le 29
+          test "$APPID" = "com.kplay.horseracing.crosspool.v24"
+          ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HorseRacingOddsAnalyzer-debug-apk
+          name: HorseRacingOddsAnalyzer-v2.4.0-Pegasus
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
