@@ -38,11 +38,14 @@ jobs:
       - name: Run analysis and exclusion tests
         run: node test-analysis.js && node test-exclusion.js
 
-      - name: Run all menu bridge tests
-        run: node test-menu.js
+      - name: Run ML engine and schema tests
+        run: node test-ml.js && node test-ml-schema.js && node test-result-learning.js
 
-      - name: Run branding and tablet tests
-        run: node test-branding.js
+      - name: Run UI menu and performance tests
+        run: node test-menu.js && node test-ml-ui.js && node test-performance-contract.js
+
+      - name: Run integrity and branding tests
+        run: node test-integrity.js && node test-branding.js
 
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
@@ -58,12 +61,12 @@ jobs:
           APPID=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest application-id "$APK")
           echo "minSdk=$MINSDK applicationId=$APPID"
           test "$MINSDK" -le 29
-          test "$APPID" = "com.kplay.horseracing.crosspool.v242"
+          test "$APPID" = "com.kplay.horseracing.crosspool.v300"
           ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HorseRacingOddsAnalyzer-v2.4.2-Pegasus
+          name: HorseRacingOddsAnalyzer-v3.0.0-Pegasus-ML
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
