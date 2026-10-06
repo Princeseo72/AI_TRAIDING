@@ -3,16 +3,23 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="true"
-        android:label="경마 배당 역산 분석"
+        android:icon="@mipmap/ic_launcher_pegasus"
+        android:roundIcon="@mipmap/ic_launcher_pegasus"
+        android:label="PEGASUS 2026"
         android:theme="@style/Theme.HorseRacing">
         <activity
-            android:name=".MainActivity"
+            android:name=".IntroActivity"
             android:exported="true"
+            android:theme="@style/Theme.PegasusIntro"
             android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
     </application>
 </manifest>
