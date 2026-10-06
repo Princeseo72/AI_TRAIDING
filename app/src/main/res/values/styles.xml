@@ -10,9 +10,10 @@
     <style name="Theme.PegasusIntro" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">#F20CB5</item>
-        <item name="android:navigationBarColor">#F20CB5</item>
-        <item name="android:statusBarColor">#F20CB5</item>
+        <item name="android:windowBackground">#2F4D32</item>
+        <item name="android:navigationBarColor">#2F4D32</item>
+        <item name="android:statusBarColor">#2F4D32</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:colorAccent">#FFFFFF</item>
     </style>
 </resources>
