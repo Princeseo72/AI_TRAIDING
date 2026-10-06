@@ -6,14 +6,13 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public class RaceDbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "horse_racing_analysis.db";
-    private static final int DB_VERSION = 3;
+    private static final int DB_VERSION = 4;
     public RaceDbHelper(Context context) { super(context, DB_NAME, null, DB_VERSION); }
 
     @Override public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE analysis_records (id INTEGER PRIMARY KEY AUTOINCREMENT,race_date TEXT NOT NULL,region TEXT NOT NULL,race_number INTEGER NOT NULL,status TEXT NOT NULL,market_center INTEGER,late_money INTEGER,payload_json TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE TABLE analysis_records (id INTEGER PRIMARY KEY AUTOINCREMENT,race_date TEXT NOT NULL,region TEXT NOT NULL,race_number INTEGER NOT NULL,status TEXT NOT NULL,market_center INTEGER,late_money INTEGER,payload_json TEXT NOT NULL,prediction_snapshot_json TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
         db.execSQL("CREATE INDEX idx_analysis_race ON analysis_records(race_date, region, race_number)");
-        createV2Tables(db);
-        createV3Tables(db);
+        createV2Tables(db); createV3Tables(db); createV4Tables(db);
     }
 
     private void createV2Tables(SQLiteDatabase db) {
@@ -34,8 +33,22 @@ public class RaceDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX idx_race_outcomes_race ON race_outcomes(race_date,region,race_number)");
     }
 
+    private void createV4Tables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE ml_models (id INTEGER PRIMARY KEY AUTOINCREMENT,model_version TEXT NOT NULL UNIQUE,region TEXT NOT NULL,sample_count INTEGER NOT NULL DEFAULT 0,weights_json TEXT NOT NULL,metrics_json TEXT NOT NULL,status TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE TABLE ml_training_examples (id INTEGER PRIMARY KEY AUTOINCREMENT,race_id INTEGER,analysis_record_id INTEGER NOT NULL UNIQUE,model_version TEXT NOT NULL,feature_snapshot_json TEXT NOT NULL,prediction_json TEXT NOT NULL,actual_result_json TEXT,target_json TEXT,error_json TEXT,trained_at TEXT)");
+        db.execSQL("CREATE TABLE ml_training_events (id INTEGER PRIMARY KEY AUTOINCREMENT,model_from TEXT,model_to TEXT,race_id INTEGER,analysis_record_id INTEGER,weight_delta_json TEXT,before_metrics_json TEXT,after_metrics_json TEXT,promoted INTEGER NOT NULL DEFAULT 0,reason TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE INDEX idx_ml_models_region_status ON ml_models(region,status,created_at)");
+        db.execSQL("CREATE INDEX idx_ml_examples_model ON ml_training_examples(model_version,trained_at)");
+        db.execSQL("CREATE INDEX idx_ml_events_record ON ml_training_events(analysis_record_id,created_at)");
+        db.execSQL("INSERT OR IGNORE INTO ml_models(model_version,region,sample_count,weights_json,metrics_json,status) VALUES('ML-v1-GLOBAL','GLOBAL',0,'{\"share\":0.32,\"lmi\":0.24,\"crossPool\":0.20,\"popularity\":0.10,\"stability\":0.08,\"structure\":0.06}','{\"verified\":0}','ACTIVE')");
+    }
+
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) createV2Tables(db);
         if (oldVersion < 3) createV3Tables(db);
+        if (oldVersion < 4) {
+            try { db.execSQL("ALTER TABLE analysis_records ADD COLUMN prediction_snapshot_json TEXT"); } catch (Exception ignored) {}
+            createV4Tables(db);
+        }
     }
 }
