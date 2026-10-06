@@ -50,21 +50,31 @@ public class GumvitBridge {
 
     private static boolean isExcluded(Element tr) {
         String t = tr.text().replace(" ", "");
-        if (t.contains("출전취소") || t.contains("출전제외") || t.contains("취소") || t.contains("제외")) return true;
+        if (t.contains("출전취소") || t.contains("출전제외")) return true;
+        for (Element td : tr.select("td")) {
+            String x = td.text().trim();
+            if ("취".equals(x) || "취소".equals(x) || "제외".equals(x) || "출전취소".equals(x) || "출전제외".equals(x)) return true;
+        }
+        if (!tr.select("s,strike,.cancel,.scratch,[style*=line-through]").isEmpty()) return true;
         String cls = tr.className().toLowerCase();
         String style = tr.attr("style").toLowerCase();
-        return cls.contains("cancel") || cls.contains("scratch") || style.contains("line-through");
+        String html = tr.html().toLowerCase();
+        return cls.contains("cancel") || cls.contains("scratch") || style.contains("line-through") || html.contains("line-through");
+    }
+
+    private static Document get(String url) throws Exception {
+        return Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36")
+                .referrer("https://www.gumvit.com/statv40/")
+                .timeout(15000)
+                .get();
     }
 
     private JSONObject fetch(String date, String region, int raceNo) throws Exception {
         String loc = code(region);
         String url = "https://www.gumvit.com/statv40/chulma_detail.html?loc=" + loc
                 + "&m_date=" + date + "&race_no=" + raceNo + "&type=" + typeCode(date, region);
-        Document doc = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36")
-                .referrer("https://www.gumvit.com/statv40/")
-                .timeout(15000)
-                .get();
+        Document doc = get(url);
 
         String requestedDate = date;
         int requestedRaceNo = raceNo;
@@ -107,14 +117,14 @@ public class GumvitBridge {
             h.put("excluded", !active);
             StringBuilder tail = new StringBuilder();
             for (int i = 5; i < td.size(); i++) {
-                String t = td.get(i).text().trim();
-                if (!t.isEmpty()) { if (tail.length() > 0) tail.append(" "); tail.append(t); }
+                String x = td.get(i).text().trim();
+                if (!x.isEmpty()) { if (tail.length() > 0) tail.append(" "); tail.append(x); }
             }
             h.put("expert", tail.toString());
             String popularity = "";
             for (int i = td.size() - 1; i >= 5; i--) {
-                String t = td.get(i).text().trim();
-                if (t.matches("\\d{1,4}")) { popularity = t; break; }
+                String x = td.get(i).text().trim();
+                if (x.matches("\\d{1,4}")) { popularity = x; break; }
             }
             h.put("popularity", popularity);
             if (active) horses.put(h); else excluded.put(h);
@@ -137,8 +147,83 @@ public class GumvitBridge {
         return out;
     }
 
-    @JavascriptInterface
-    public String fetchRace(String date, String region, int raceNo) {
+    private static int indexOfHeader(Elements cells, String label) {
+        for (int i=0;i<cells.size();i++) if (cells.get(i).text().replace(" ", "").contains(label)) return i;
+        return -1;
+    }
+
+    private static Double payoutOdd(String text, String label) {
+        Matcher m = Pattern.compile(Pattern.quote(label) + "\\s*:\\s*[^0-9]*([0-9]+(?:\\.[0-9]+)?)").matcher(text);
+        return m.find() ? Double.parseDouble(m.group(1)) : null;
+    }
+
+    private static String sortedKey(int... nums) {
+        java.util.Arrays.sort(nums);
+        StringBuilder b = new StringBuilder();
+        for (int i=0;i<nums.length;i++) { if (i>0) b.append('-'); b.append(nums[i]); }
+        return b.toString();
+    }
+
+    private JSONObject fetchResult(String date, String region, int raceNo) throws Exception {
+        String url = "https://www.gumvit.com/statv40/result_detail.html?loc=" + code(region) + "&race=" + raceNo + "&racedate=" + date;
+        Document doc = get(url);
+        String parsedDate = actualDate(doc);
+        int parsedRace = actualRaceNo(doc);
+        if (!date.equals(parsedDate) || raceNo != parsedRace) throw new Exception("경주결과 정보 불일치");
+
+        Element table = null, headerRow = null;
+        for (Element t : doc.select("table")) {
+            for (Element tr : t.select("tr")) {
+                String x = tr.text().replace(" ", "");
+                if (x.contains("순위") && x.contains("마번") && x.contains("마명") && x.contains("단승식")) { table=t; headerRow=tr; break; }
+            }
+            if (table != null) break;
+        }
+        if (table == null || headerRow == null) throw new Exception("검빛 경주결과 착순표가 아직 없습니다.");
+        Elements headers = headerRow.select("th,td");
+        int iRank=indexOfHeader(headers,"순위"), iNo=indexOfHeader(headers,"마번"), iName=indexOfHeader(headers,"마명"), iWin=indexOfHeader(headers,"단승식"), iPlace=indexOfHeader(headers,"연승식");
+        if (iRank<0 || iNo<0 || iName<0) throw new Exception("경주결과 열 구조를 확인할 수 없습니다.");
+
+        JSONArray finishers=new JSONArray(), excluded=new JSONArray();
+        for (Element tr : table.select("tr")) {
+            if (tr == headerRow) continue;
+            Elements td=tr.select("td");
+            int max=Math.max(iRank,Math.max(iNo,iName));
+            if (td.size()<=max) continue;
+            String rankText=td.get(iRank).text().trim(), noText=td.get(iNo).text().trim(), name=td.get(iName).text().trim();
+            if (!noText.matches("\\d{1,2}") || name.isEmpty()) continue;
+            int no=Integer.parseInt(noText);
+            if (rankText.matches("\\d+")) {
+                JSONObject f=new JSONObject().put("rank",Integer.parseInt(rankText)).put("number",no).put("name",name);
+                if (iWin>=0 && td.size()>iWin) { try { f.put("winOdds",Double.parseDouble(td.get(iWin).text().trim())); } catch(Exception ignored){} }
+                if (iPlace>=0 && td.size()>iPlace) { try { f.put("placeOdds",Double.parseDouble(td.get(iPlace).text().trim())); } catch(Exception ignored){} }
+                finishers.put(f);
+            } else if (rankText.startsWith("취") || isExcluded(tr)) excluded.put(new JSONObject().put("number",no).put("name",name).put("status",rankText));
+        }
+        if (finishers.length()<1) throw new Exception("경주결과가 아직 확정되지 않았습니다.");
+        java.util.List<JSONObject> list=new java.util.ArrayList<>();
+        for(int i=0;i<finishers.length();i++) list.add(finishers.getJSONObject(i));
+        java.util.Collections.sort(list,(a,b)->Integer.compare(a.optInt("rank",999),b.optInt("rank",999)));
+        JSONArray sorted=new JSONArray(); for(JSONObject f:list) sorted.put(f); finishers=sorted;
+
+        int first=finishers.getJSONObject(0).getInt("number");
+        int second=finishers.length()>1?finishers.getJSONObject(1).getInt("number"):0;
+        int third=finishers.length()>2?finishers.getJSONObject(2).getInt("number"):0;
+        String body=doc.body()==null?doc.text():doc.body().text();
+        JSONObject payouts=new JSONObject();
+        Double win=payoutOdd(body,"단승식"), quin=payoutOdd(body,"복승식"), exact=payoutOdd(body,"쌍승식"), trio=payoutOdd(body,"삼복승"), trifecta=payoutOdd(body,"삼쌍승");
+        if(win!=null)payouts.put("WIN",new JSONObject().put("key",String.valueOf(first)).put("odds",win));
+        if(second>0&&quin!=null)payouts.put("QUINELLA",new JSONObject().put("key",sortedKey(first,second)).put("odds",quin));
+        if(second>0&&exact!=null)payouts.put("EXACTA",new JSONObject().put("key",first+">"+second).put("odds",exact));
+        if(third>0&&trio!=null)payouts.put("TRIO",new JSONObject().put("key",sortedKey(first,second,third)).put("odds",trio));
+        if(third>0&&trifecta!=null)payouts.put("TRIFECTA",new JSONObject().put("key",first+">"+second+">"+third).put("odds",trifecta));
+        if (!payouts.has("WIN")) throw new Exception("경주 확정배당이 아직 게시되지 않았습니다.");
+
+        return new JSONObject().put("ok",true).put("verified",true).put("date",parsedDate).put("raceNo",parsedRace)
+                .put("region",region).put("source",url).put("finishers",finishers).put("excludedHorses",excluded).put("payouts",payouts);
+    }
+
+    @JavascriptInterface public String fetchRace(String date, String region, int raceNo) {
         try { return fetch(date, region, raceNo).toString(); }
         catch (Exception e) {
             try { return new JSONObject().put("ok", false).put("verified", false).put("error", e.getMessage() == null ? e.toString() : e.getMessage()).toString(); }
@@ -146,12 +231,10 @@ public class GumvitBridge {
         }
     }
 
-    @JavascriptInterface
-    public String verifyRace(String date, String region, int raceNo, String expectedHorseNumbersJson) {
+    @JavascriptInterface public String verifyRace(String date, String region, int raceNo, String expectedHorseNumbersJson) {
         try {
             JSONObject fresh = fetch(date, region, raceNo);
-            JSONArray expected = new JSONArray(expectedHorseNumbersJson);
-            JSONArray actual = fresh.getJSONArray("horses");
+            JSONArray expected = new JSONArray(expectedHorseNumbersJson), actual = fresh.getJSONArray("horses");
             Set<Integer> e = new HashSet<>(), a = new HashSet<>();
             for (int i=0;i<expected.length();i++) e.add(expected.getInt(i));
             for (int i=0;i<actual.length();i++) a.add(actual.getJSONObject(i).getInt("number"));
@@ -159,17 +242,23 @@ public class GumvitBridge {
             for (Integer n : e) if (!a.contains(n)) missing.put(n);
             for (Integer n : a) if (!e.contains(n)) added.put(n);
             boolean same = missing.length()==0 && added.length()==0;
-            return new JSONObject()
-                    .put("ok", same).put("verified", same)
+            return new JSONObject().put("ok", same).put("verified", same)
                     .put("requestedDate", date).put("actualDate", fresh.getString("actualDate"))
                     .put("requestedRaceNo", raceNo).put("actualRaceNo", fresh.getInt("actualRaceNo"))
                     .put("activeCount", fresh.getInt("activeCount")).put("excludedCount", fresh.getInt("excludedCount"))
                     .put("missing", missing).put("added", added).put("source", fresh.getString("source"))
-                    .put("error", same ? "" : "출전마 구성이 최초 수집 시점과 달라졌습니다.")
-                    .toString();
+                    .put("error", same ? "" : "출전마 구성이 최초 수집 시점과 달라졌습니다.").toString();
         } catch (Exception e) {
             try { return new JSONObject().put("ok", false).put("verified", false).put("error", e.getMessage()).toString(); }
             catch (Exception ignored) { return "{\"ok\":false,\"verified\":false}"; }
+        }
+    }
+
+    @JavascriptInterface public String fetchRaceResult(String date, String region, int raceNo) {
+        try { return fetchResult(date,region,raceNo).toString(); }
+        catch(Exception e) {
+            try { return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()==null?e.toString():e.getMessage()).toString(); }
+            catch(Exception ignored){ return "{\"ok\":false,\"verified\":false}"; }
         }
     }
 }
