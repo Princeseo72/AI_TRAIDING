@@ -5,11 +5,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.kplay.horseracing.crosspool.v24'
+        applicationId 'com.kplay.horseracing.crosspool.v241'
         minSdk 23
         targetSdk 35
-        versionCode 24
-        versionName '2.4.0'
+        versionCode 241
+        versionName '2.4.1'
     }
 }
 
