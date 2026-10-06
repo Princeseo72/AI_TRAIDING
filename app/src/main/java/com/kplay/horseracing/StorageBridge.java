@@ -14,7 +14,7 @@ public class StorageBridge {
     public StorageBridge(Context context) { helper = new RaceDbHelper(context); }
 
     private String error(String message) {
-        try { return new JSONObject().put("ok", false).put("error", message).toString(); }
+        try { return new JSONObject().put("ok", false).put("error", message == null ? "오류" : message).toString(); }
         catch (Exception ignored) { return "{\"ok\":false}"; }
     }
 
@@ -70,44 +70,70 @@ public class StorageBridge {
     }
 
     @JavascriptInterface public String listAnalyses() {
-        JSONArray arr = new JSONArray(); long start=System.nanoTime(); SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id,race_date,region,race_number,status,market_center,late_money,created_at FROM analysis_records ORDER BY id DESC LIMIT 200", null)) {
-            while (c.moveToNext()) { JSONObject o=new JSONObject(); o.put("id",c.getLong(0));o.put("raceDate",c.getString(1));o.put("region",c.getString(2));o.put("raceNumber",c.getInt(3));o.put("status",c.getString(4));o.put("marketCenter",c.getInt(5));o.put("lateMoney",c.getInt(6));o.put("createdAt",c.getString(7));arr.put(o); }
+        JSONArray arr = new JSONArray(); SQLiteDatabase db = helper.getReadableDatabase();
+        String sql="SELECT a.id,a.race_date,a.region,a.race_number,a.status,a.market_center,a.late_money,a.created_at,CASE WHEN o.id IS NULL THEN 0 ELSE 1 END FROM analysis_records a LEFT JOIN race_outcomes o ON o.analysis_record_id=a.id ORDER BY a.id DESC LIMIT 200";
+        try (Cursor c = db.rawQuery(sql, null)) {
+            while (c.moveToNext()) { JSONObject o=new JSONObject(); o.put("id",c.getLong(0));o.put("raceDate",c.getString(1));o.put("region",c.getString(2));o.put("raceNumber",c.getInt(3));o.put("status",c.getString(4));o.put("marketCenter",c.getInt(5));o.put("lateMoney",c.getInt(6));o.put("createdAt",c.getString(7));o.put("hasOutcome",c.getInt(8)==1);arr.put(o); }
         } catch (Exception ignored) {}
         return arr.toString();
     }
 
     @JavascriptInterface public String getAnalysis(long id) {
         long start=System.nanoTime(); SQLiteDatabase db=helper.getReadableDatabase();
-        try (Cursor c=db.rawQuery("SELECT payload_json FROM analysis_records WHERE id=? LIMIT 1",new String[]{String.valueOf(id)})) {
+        try (Cursor c=db.rawQuery("SELECT a.payload_json,o.result_json FROM analysis_records a LEFT JOIN race_outcomes o ON o.analysis_record_id=a.id WHERE a.id=? LIMIT 1",new String[]{String.valueOf(id)})) {
             if(!c.moveToFirst()) return error("저장 분석을 찾지 못했습니다.");
-            return new JSONObject().put("ok",true).put("loadMs",(System.nanoTime()-start)/1_000_000.0).put("payload",new JSONObject(c.getString(0))).toString();
+            JSONObject payload=new JSONObject(c.getString(0));
+            if(!c.isNull(1)) payload.put("postRaceResult",new JSONObject(c.getString(1)));
+            return new JSONObject().put("ok",true).put("loadMs",(System.nanoTime()-start)/1_000_000.0).put("id",id).put("payload",payload).toString();
         } catch(Exception e){return error(e.getMessage());}
+    }
+
+    @JavascriptInterface public String attachRaceResult(long id, String resultJson) {
+        SQLiteDatabase db=null;
+        try {
+            JSONObject result=new JSONObject(resultJson);
+            if(!result.optBoolean("ok",false)||!result.optBoolean("verified",false)) return error("검증된 경주결과가 아닙니다.");
+            db=helper.getWritableDatabase(); db.beginTransaction();
+            String raceDate,region; int raceNumber; JSONObject payload;
+            try(Cursor c=db.rawQuery("SELECT race_date,region,race_number,payload_json FROM analysis_records WHERE id=? LIMIT 1",new String[]{String.valueOf(id)})) {
+                if(!c.moveToFirst()) return error("저장 분석을 찾지 못했습니다.");
+                raceDate=c.getString(0);region=c.getString(1);raceNumber=c.getInt(2);payload=new JSONObject(c.getString(3));
+            }
+            if(!raceDate.equals(result.optString("date"))||raceNumber!=result.optInt("raceNo")||!region.equals(result.optString("region"))) return error("저장 분석과 경주결과가 일치하지 않습니다.");
+            ContentValues ov=new ContentValues();ov.put("analysis_record_id",id);ov.put("race_date",raceDate);ov.put("region",region);ov.put("race_number",raceNumber);ov.put("result_json",result.toString());
+            db.insertWithOnConflict("race_outcomes",null,ov,SQLiteDatabase.CONFLICT_REPLACE);
+            payload.put("postRaceResult",result);ContentValues pv=new ContentValues();pv.put("payload_json",payload.toString());db.update("analysis_records",pv,"id=?",new String[]{String.valueOf(id)});
+            db.setTransactionSuccessful();
+            return new JSONObject().put("ok",true).put("id",id).toString();
+        } catch(Exception e){return error(e.getMessage());}
+        finally{if(db!=null&&db.inTransaction())db.endTransaction();}
     }
 
     @JavascriptInterface public String healthCheck() {
         long start=System.nanoTime(); SQLiteDatabase db=helper.getReadableDatabase();
         try {
-            int records=0; try(Cursor c=db.rawQuery("SELECT COUNT(*) FROM analysis_records",null)){if(c.moveToFirst())records=c.getInt(0);}
+            int records=0,outcomes=0; try(Cursor c=db.rawQuery("SELECT COUNT(*) FROM analysis_records",null)){if(c.moveToFirst())records=c.getInt(0);} try(Cursor c=db.rawQuery("SELECT COUNT(*) FROM race_outcomes",null)){if(c.moveToFirst())outcomes=c.getInt(0);}
             long pageCount=0,pageSize=0; try(Cursor c=db.rawQuery("PRAGMA page_count",null)){if(c.moveToFirst())pageCount=c.getLong(0);} try(Cursor c=db.rawQuery("PRAGMA page_size",null)){if(c.moveToFirst())pageSize=c.getLong(0);}
             db.rawQuery("PRAGMA quick_check",null).close();
-            return new JSONObject().put("ok",true).put("records",records).put("dbBytes",pageCount*pageSize).put("durationMs",(System.nanoTime()-start)/1_000_000.0).toString();
+            return new JSONObject().put("ok",true).put("records",records).put("outcomes",outcomes).put("dbBytes",pageCount*pageSize).put("durationMs",(System.nanoTime()-start)/1_000_000.0).toString();
         } catch(Exception e){return error(e.getMessage());}
     }
 
     @JavascriptInterface public String cleanupData() {
         long start=System.nanoTime(); SQLiteDatabase db=helper.getWritableDatabase();
         try {
+            db.execSQL("DELETE FROM race_outcomes WHERE analysis_record_id NOT IN (SELECT id FROM analysis_records)");
             db.execSQL("DELETE FROM selection_metrics WHERE race_id NOT IN (SELECT id FROM races)");
             db.execSQL("DELETE FROM horse_metrics WHERE race_id NOT IN (SELECT id FROM races)");
             db.execSQL("DELETE FROM pool_snapshots WHERE race_id NOT IN (SELECT id FROM races)");
             db.execSQL("DELETE FROM horses WHERE race_id NOT IN (SELECT id FROM races)");
             db.execSQL("DELETE FROM analysis_history WHERE result_id NOT IN (SELECT id FROM analysis_results)");
-            db.execSQL("PRAGMA optimize");
-            db.execSQL("VACUUM");
+            db.execSQL("PRAGMA optimize"); db.execSQL("VACUUM");
             return new JSONObject().put("ok",true).put("durationMs",(System.nanoTime()-start)/1_000_000.0).toString();
         } catch(Exception e){return error(e.getMessage());}
     }
 
-    @JavascriptInterface public String deleteAnalysis(long id) { int n=helper.getWritableDatabase().delete("analysis_records","id=?",new String[]{String.valueOf(id)});return "{\"ok\":"+(n>0)+"}"; }
+    @JavascriptInterface public String deleteAnalysis(long id) {
+        SQLiteDatabase db=helper.getWritableDatabase();db.delete("race_outcomes","analysis_record_id=?",new String[]{String.valueOf(id)});int n=db.delete("analysis_records","id=?",new String[]{String.valueOf(id)});return "{\"ok\":"+(n>0)+"}";
+    }
 }
