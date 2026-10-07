@@ -19,6 +19,7 @@ assert(app.includes("S.pools={WIN:{T20:S.horses.map"),'WIN rows must be built fr
 assert(app.includes('manualExcludedNumbers'),'manual exclusion must survive T20/T5 refreshes');
 assert(app.includes('manuallyExcludeHorse'),'manual hard-exclusion control missing');
 assert(app.includes('manualExclude'),'race screen must expose exclusion safety control');
-assert(detector.includes('RESULT_ROW_SCRATCH'),'result-table scratch fallback missing');
-assert(detector.includes('DECISION_NUMBER'),'decision/report scratch fallback missing');
+assert(!detector.includes('RESULT_ROW_SCRATCH'),'page-global result regex must not drive exclusion');
+assert(!detector.includes('DECISION_NUMBER'),'page-global decision regex must not drive exclusion');
+assert(!detector.includes('REPORT_CIRCLED'),'circled-number page-global inference must not drive exclusion');
 console.log('STRICT EXCLUDED HORSE CONTRACT TESTS PASSED');
