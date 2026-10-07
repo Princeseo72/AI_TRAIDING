@@ -32,6 +32,9 @@ function loadPreRaceContext(){
     return S.preRaceContext;
   }
 }
+function uiStatus(code){
+ const m={NO_LOCAL_OUTCOME_DATA:'지역 확정결과 없음',LOW_SAMPLE:'지역 표본 부족',READY:'준비 완료',HIST_PENDING:'과거자료 구축 중',HIST_INVALID:'과거자료 오류',ACTIVE:'검증 완료',UNVERIFIED:'검증 표본 부족',FALLBACK:'기본모델',NO_SAME_DAY_SAMPLE:'당일 선행경주 없음',INSUFFICIENT_FIELDS:'편향 산출자료 부족',RATING_PENDING:'평가자료 구축 중',AVAILABLE:'평가자료 사용 가능',PENDING:'준비 중',UNAVAILABLE:'사용 불가',LOW:'낮음',MID:'보통',HIGH:'높음'};return m[String(code||'')]||String(code||'미준비').replaceAll('_',' ');
+}
 function preRaceBriefing(){
   if(!S.gumvit.verified)return '';
   const c=S.preRaceContext;
@@ -39,19 +42,19 @@ function preRaceBriefing(){
   if(!c.ok)return `<section class="card"><h2>PEGASUS 사전 브리핑</h2><span class="warn">Fallback · ${esc(c.error||'Context 없음')}</span></section>`;
   const rp=c.regionalProfile||{},hist=c.historicalPrior||{},ch=c.champion||{},tb=c.trackBias||{},fresh=c.dataFreshness||{},u=c.uncertainty||{};
   const r100=rp.recent100||{},r20=rp.recent20||{};
-  return `<section class="card briefing"><div class="row spread"><h2>PEGASUS 사전 브리핑</h2><span class="${u.level==='HIGH'?'warn':'good'}">신뢰도 ${esc(u.level||'LOW')}</span></div>
+  return `<section class="card briefing"><div class="row spread"><h2>PEGASUS 사전 브리핑</h2><span class="${u.level==='HIGH'?'warn':'good'}">신뢰도 ${esc(uiStatus(u.level||'LOW'))}</span></div>
     <div class="grid g4">
-      <div><label>지역 프로파일</label><b>${esc(rp.status||'미준비')}</b><small>${rp.sampleCount||0}경주</small></div>
-      <div><label>Hist 상태</label><b class="${hist.status==='HIST_PENDING'?'warn':'good'}">${esc(hist.status||'HIST_PENDING')}</b><small>유사 ${hist.similarRaceCount||0}경주</small></div>
-      <div><label>Champion</label><b>${esc(ch.modelVersion||'BASELINE')}</b><small>${esc(ch.status||'FALLBACK')}</small></div>
-      <div><label>Track Bias</label><b>${esc(tb.status||'없음')}</b><small>당일 ${tb.sampleCount||0}경주</small></div>
+      <div><label>지역 프로파일</label><b>${esc(uiStatus(rp.status||'미준비'))}</b><small>${rp.sampleCount||0}경주</small></div>
+      <div><label>Hist 상태</label><b class="${hist.status==='HIST_PENDING'?'warn':'good'}">${esc(uiStatus(hist.status||'HIST_PENDING'))}</b><small>유사 ${hist.similarRaceCount||0}경주</small></div>
+      <div><label>Champion</label><b>${esc(ch.modelVersion||'BASELINE')}</b><small>${esc(uiStatus(ch.status||'FALLBACK'))}</small></div>
+      <div><label>Track Bias</label><b>${esc(uiStatus(tb.status||'없음'))}</b><small>당일 ${tb.sampleCount||0}경주</small></div>
     </div>
     <div class="briefStats">
       <span>최근100 1인기 승률 ${r100.favoriteWinRate==null?'-':pct(r100.favoriteWinRate)}</span>
       <span>최근20 1인기 승률 ${r20.favoriteWinRate==null?'-':pct(r20.favoriteWinRate)}</span>
       <span>Context ${esc(c.contextVersion||'-')}</span>
     </div>
-    <div class="sub">데이터 최신 · Hist ${esc(fresh.hist??'미연결')} · 지역 ${esc(fresh.regional??'표본없음')} · Rating ${fresh.ratingRows||0}건</div>
+    <div class="sub">데이터 상태 · 과거자료 ${fresh.hist?esc(fresh.hist):'구축 중'} · 지역자료 ${fresh.regional?esc(fresh.regional):'표본 없음'} · 평가자료 ${fresh.ratingRows||0}건</div>
   </section>`;
 }
 function raceView(){const provider=S.gumvit.sourceProvider==='KRA'?'KRA 보완':'검빛';const st=S.gumvit.loading?'<span class="warn">검빛/KRA에서 날짜·경주·출전마를 검증 중…</span>':S.gumvit.error?`<span class="bad">${esc(S.gumvit.error)}</span>`:S.gumvit.verified?`<span class="good">✓ ${esc(S.race.date)} ${S.race.number}R 검증 · 유효 출전 ${S.horses.length}두 · 출처 ${esc(provider)}</span>`:'<span class="sub">검빛 우선, 실패 시 KRA 공식정보로 자동 보완합니다.</span>';return `<section class="card"><h2>경주 정보</h2><div class="grid g3"><div><label>날짜</label><input id="date" type="date" value="${S.race.date}"></div><div><label>지역</label><select id="region"><option>서울</option><option>부산경남</option><option>제주</option></select></div><div><label>경주번호</label><input id="raceNo" type="number" min="1" max="20" value="${S.race.number}"></div></div><div class="row spread"><div>${st}</div><button id="loadGumvit" class="primary">경주정보 검증·불러오기</button></div>${S.gumvit.source?`<div class="sub source">${esc(S.gumvit.source)}</div>`:''}</section>${preRaceBriefing()}<section class="card"><h2>유효 출전마</h2><div class="tableWrap"><table><thead><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th><th>인기도</th></tr></thead><tbody>${S.horses.map(h=>`<tr><td>${h.number}</td><td>${esc(h.name)}</td><td>${h.record?esc(h.record):'<span class="sub">자료없음</span>'}</td><td>${esc(h.trainer)}</td><td>${esc(h.jockey)}</td><td>${esc(h.popularity)}</td></tr>`).join('')||'<tr><td colspan="6">검증된 경주를 불러오세요.</td></tr>'}</tbody></table></div><div class="row right"><button id="to20" class="primary" ${S.gumvit.verified&&S.horses.length>=3?'':'disabled'}>20분 전 배당 입력 →</button></div></section>`}
