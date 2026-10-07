@@ -13,6 +13,11 @@ const checks=[
 ];
 for(const [n,t] of checks)assert(app.includes(t),`${n} menu missing`);
 for(const fn of ['fetchRace','verifyRace','fetchRaceResult'])assert(gum.includes(fn),`Gumvit ${fn} missing`);
+assert(gum.includes('selfDiagnose'),'Gumvit self diagnosis missing');
+assert(gum.includes('Pre-race field loading must never query result_detail'),'pre-race duplicate-result lookup guard missing');
+const fetchBody=gum.slice(gum.indexOf('private JSONObject fetch(String date'),gum.indexOf('private static Double payoutOdd'));
+assert(!fetchBody.includes('resultScratchNumbers(date,region,raceNo)'),'pre-race fetch still queries Gumvit result_detail');
+assert(app.includes('AndroidRace.selfDiagnose'),'UI source self-diagnosis wiring missing');
 assert(gum.includes('exactScratchStatus'),'strict scratch status missing');
 assert(!gum.includes('rankText.startsWith("취") || tr.text().contains'),'legacy broad result scratch logic remains');
 for(const fn of ['getAnalysis','healthCheck','cleanupData','attachRaceResult','getActiveModel','getMlStatus','recordTrainingEvent'])assert(store.includes(fn),`Storage ${fn} missing`);
