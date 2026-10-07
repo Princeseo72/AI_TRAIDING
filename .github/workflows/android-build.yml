@@ -39,7 +39,7 @@ jobs:
         run: node test-analysis.js && node test-exclusion.js
 
       - name: Run real scratch parser unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.GumvitLiveSmokeTest
+        run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.KraRaceParserTest --tests com.kplay.horseracing.gumvit.DualSourceLiveSmokeTest
 
       - name: Run excluded-runner JS boundary tests
         run: node test-runner-guard.js
