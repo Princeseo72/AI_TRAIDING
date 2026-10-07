@@ -319,3 +319,5 @@ v6 isolated batch build trigger. Release status remains NOT_VERIFIED until block
 - 69ed0a40: 실제 buildPegasusInput 경로에 validated HIST prior 주입 누락을 blocking test가 발견하여 수정. UI-only 연결 금지 계약 확인.
 
 - v6 회귀감사: T5 자동분석 금지 테스트는 기존 noop 함수 정의 자체를 오탐하므로 호출 유무를 검사하도록 테스트 교정. 실제 T5 입력 동작은 변경하지 않음.
+
+- f6f60dc5: v6 UI 삽입 중 발생한 legacy scheduleAnalysis noop 중복 정의 제거. T5 수동 분석 계약 자체는 변경 없음.
