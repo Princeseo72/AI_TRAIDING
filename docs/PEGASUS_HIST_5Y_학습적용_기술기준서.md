@@ -312,3 +312,6 @@ MainActivity.java: AndroidHist bridge + ACTION_OPEN_DOCUMENT result 전달만 ad
 app.js: HIST 입력/학습 UI, 상태, point-in-time prior 주입.
 build.gradle/workflow/index.html: v6.0.0 identity.
 기존 Gumvit/Scratch/메뉴1~6/T20/T5/snapshot/result-learning 계약은 변경하지 않는다.
+
+
+v6 isolated batch build trigger. Release status remains NOT_VERIFIED until blocking CI completes.
