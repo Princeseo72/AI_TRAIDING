@@ -38,6 +38,18 @@ public class GumvitPageParserTest {
         assertFalse(GumvitPageParser.identityMatches(Jsoup.parse(html),"2026-10-03","제주",3));
     }
     @Test
+    public void acceptsAndroidGumvitResponseWhenVisibleDateIsMissingButRequestIdentityAndEntryTableMatch() {
+        String html="<html><body><div>2경주 제주 경마장</div>"
+                +"<table><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th></tr>"
+                +"<tr><td>1</td><td>민강불패</td><td>10전 (0/1)</td><td>최기호</td><td>전현준</td></tr></table>"
+                +"</body></html>";
+        String url="https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=2&type=6";
+        assertTrue(GumvitPageParser.identityMatches(Jsoup.parse(html,url),"2026-10-03","제주",2));
+        assertFalse(GumvitPageParser.identityMatches(Jsoup.parse(html,url),"2026-10-04","제주",2));
+        assertFalse(GumvitPageParser.identityMatches(Jsoup.parse(html,url),"2026-10-03","제주",3));
+    }
+
+    @Test
     public void selectsPopularityEntryTableInsteadOfBasicProfileTable() {
         String html="<html><body>"
                 +"<table><tr><th>마번</th><th>관리</th><th>마명</th><th>산지</th><th>기수명</th><th>조교사(조)</th></tr>"
