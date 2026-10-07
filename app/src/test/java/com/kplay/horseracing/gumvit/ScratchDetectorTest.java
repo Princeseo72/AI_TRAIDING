@@ -78,4 +78,27 @@ public class ScratchDetectorTest {
         assertFalse("현재 상태 셀이 아닌 과거 설명문으로 제외하면 안 됨", ScratchDetector.isEntryExcluded(row));
     }
 
+    @Test
+    public void dayChangeTableJejuOct3Race2ExcludesOnlyHorse2() {
+        String html = "<html><body><h6>말취소</h6><table>"
+                + "<tr><th>경주</th><th>번호</th><th>마명</th><th>조교사</th><th>기수명</th></tr>"
+                + "<tr><td>2</td><td>2</td><td>태흥산성</td><td>윤호상</td><td>김한남</td></tr>"
+                + "<tr><td>3</td><td>7</td><td>다른경주취소마</td><td>홍길동</td><td>기수</td></tr>"
+                + "</table></body></html>";
+        Set<Integer> numbers = ScratchDetector.changeScratchNumbers(Jsoup.parse(html), 2);
+        assertEquals(1, numbers.size());
+        assertTrue(numbers.contains(2));
+        assertFalse(numbers.contains(7));
+    }
+
+    @Test
+    public void normalHorseRowsOutsideCancellationTableRemainActive() {
+        String html = "<html><body><table>"
+                + "<tr><th>경주</th><th>번호</th><th>마명</th></tr>"
+                + "<tr><td>2</td><td>9</td><td>천년여왕</td></tr>"
+                + "<tr><td>2</td><td>10</td><td>레드크라운</td></tr>"
+                + "</table></body></html>";
+        assertTrue(ScratchDetector.changeScratchNumbers(Jsoup.parse(html), 2).isEmpty());
+    }
+
 }
