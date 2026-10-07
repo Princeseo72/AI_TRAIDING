@@ -24,14 +24,14 @@
     return (pred?.finalCombinations?.[pool]||[]).some(x=>String(x.key)===String(key))?1:0;
   }
   function evaluate(pred,actual){
-    const role=(pred?.rolePrediction||[]).map(x=>+x.horseNumber),odds=(pred?.oddsPrediction||[]).map(x=>+x.horseNumber),top=(actual?.top3||[]).map(Number);
+    const role=(pred?.rolePrediction||[]).map(x=>+x.horseNumber),finish=(pred?.finishPrediction||pred?.oddsPrediction||[]).map(x=>+x.horseNumber),top=(actual?.top3||[]).map(Number);
     if(top.length<3)return null;
-    const set=new Set(top),roleExact=role.length>=3&&role.slice(0,3).every((x,i)=>x===top[i]),oddsExact=odds.length>=3&&odds.slice(0,3).every((x,i)=>x===top[i]);
+    const set=new Set(top),roleTop3=role.filter(x=>set.has(x)).length/3,finishExact=finish.length>=3&&finish.slice(0,3).every((x,i)=>x===top[i]);
     return{
-      first:+(role[0]===top[0]),second:+(role[1]===top[1]),third:+(role[2]===top[2]),
-      roleExact123:+roleExact,roleTop3:role.filter(x=>set.has(x)).length/3,
-      oddsFirst:+(odds[0]===top[0]),oddsSecond:+(odds[1]===top[1]),oddsThird:+(odds[2]===top[2]),
-      oddsExact123:+oddsExact,oddsTop3:odds.filter(x=>set.has(x)).length/3,
+      first:+(finish[0]===top[0]),second:+(finish[1]===top[1]),third:+(finish[2]===top[2]),
+      roleExact123:0,roleTop3,
+      oddsFirst:+(finish[0]===top[0]),oddsSecond:+(finish[1]===top[1]),oddsThird:+(finish[2]===top[2]),
+      oddsExact123:+finishExact,oddsTop3:finish.filter(x=>set.has(x)).length/3,
       quinella:poolHit(pred,actual,'QUINELLA'),exacta:poolHit(pred,actual,'EXACTA'),
       trio:poolHit(pred,actual,'TRIO'),trifecta:poolHit(pred,actual,'TRIFECTA')
     };
@@ -52,9 +52,9 @@
     DarkHorseScore:{source:'rolePrediction',index:0,actual:0},
     FavoriteScore:{source:'rolePrediction',index:1,actual:1},
     AbilityScore:{source:'rolePrediction',index:2,actual:2},
-    WinScore:{source:'oddsPrediction',index:0,actual:0},
-    Place2Score:{source:'oddsPrediction',index:1,actual:1},
-    Place3Score:{source:'oddsPrediction',index:2,actual:2}
+    WinScore:{source:'finishPrediction',fallback:'oddsPrediction',index:0,actual:0},
+    Place2Score:{source:'finishPrediction',fallback:'oddsPrediction',index:1,actual:1},
+    Place3Score:{source:'finishPrediction',fallback:'oddsPrediction',index:2,actual:2}
   };
   function updateMetrics(before={},ev){
     const verified=(before.verified||0)+1,out={...blankMetrics(),...before,verified};
@@ -79,7 +79,7 @@
     const top=example.actual.top3.map(Number),features=example.features||{};
     for(const score of SCORES){
       weights[score]={};delta[score]={};
-      const t=TARGET[score],actualHorse=top[t.actual],predHorse=Number(example.prediction?.[t.source]?.[t.index]?.horseNumber);
+      const t=TARGET[score],actualHorse=top[t.actual],src=example.prediction?.[t.source]||example.prediction?.[t.fallback]||[],predHorse=Number(src?.[t.index]?.horseNumber);
       const a=horseSignal(features[actualHorse]),p=horseSignal(features[predHorse]);
       for(const k of FEATURES){
         const gradient=(a[k]||0)-(p[k]||0);
