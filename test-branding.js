@@ -19,7 +19,7 @@ assert(intro.includes('.scaleX(1.0f)')&&intro.includes('.scaleY(1.0f)'),'intro e
 assert(intro.includes('setDuration(1200)'),'intro duration missing');
 assert(intro.includes('DisplayMetrics'),'tablet responsive sizing missing');
 assert(layout.includes('@drawable/pegasus_intro_logo'),'intro resource not wired');
-assert(gradle.includes("applicationId 'com.kplay.horseracing.crosspool.v300'"),'v3.0.0 package id missing');
+assert(gradle.includes("applicationId 'com.kplay.horseracing.crosspool.v301'"),'v3.0.1 package id missing');
 assert(gradle.includes('minSdk 23'),'Android 10 compatibility missing');
-assert(gradle.includes("versionName '3.0.0'"),'v3.0.0 version missing');
-console.log('PEGASUS V3.0.0 BRANDING/TABLET TESTS PASSED');
+assert(gradle.includes("versionName '3.0.1'"),'v3.0.1 version missing');
+console.log('PEGASUS V3.0.1 BRANDING/TABLET TESTS PASSED');
