@@ -8,7 +8,7 @@ import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.View;
+import android.view.View;\nimport android.util.DisplayMetrics;\nimport android.view.ViewGroup;\nimport android.view.animation.DecelerateInterpolator;\nimport android.widget.ImageView;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
