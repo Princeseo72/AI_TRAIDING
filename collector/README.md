@@ -22,3 +22,5 @@ PEGASUS는 exported DB의 schema_version을 확인하고 read-only import한다.
 Build trigger: isolated collector v1 batch.
 
 CI SDK repair trigger.
+
+Parser compile repair trigger.
