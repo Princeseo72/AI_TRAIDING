@@ -61,16 +61,17 @@ final class GumvitPageParser {
     }
 
     static boolean identityMatches(Document doc,String date,String region,int raceNo){
-        if(doc==null||!regionMatches(doc,region)||findEntryTable(doc)==null)return false;
+        if(doc==null||!regionMatches(doc,region))return false;
         String parsedDate=actualDate(doc);
         int parsedRace=actualRaceNo(doc);
-        // A visible value, when present, is authoritative and must never disagree.
         if(!parsedDate.isEmpty()&&!date.equals(parsedDate))return false;
         if(parsedRace>=0&&raceNo!=parsedRace)return false;
-        // Gumvit's rendered Android/anonymous response can omit visible date/race labels.
-        // Only recover missing identity from the exact response URL, never from a guess.
-        boolean dateOk=date.equals(parsedDate)||(parsedDate.isEmpty()&&requestedDateMatchesLocation(doc,date));
-        boolean raceOk=raceNo==parsedRace||(parsedRace<0&&requestedRaceMatchesLocation(doc,raceNo));
+        boolean missingDate=parsedDate.isEmpty(), missingRace=parsedRace<0;
+        boolean dateOk=date.equals(parsedDate)||(missingDate&&requestedDateMatchesLocation(doc,date));
+        boolean raceOk=raceNo==parsedRace||(missingRace&&requestedRaceMatchesLocation(doc,raceNo));
+        // Visible identity is sufficient. URL recovery is deliberately stricter and
+        // requires a real entry table so an error/login page can never be accepted.
+        if((missingDate||missingRace)&&findEntryTable(doc)==null)return false;
         return dateOk&&raceOk;
     }
 
