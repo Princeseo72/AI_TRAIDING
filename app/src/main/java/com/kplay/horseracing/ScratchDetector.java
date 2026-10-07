@@ -32,9 +32,6 @@ final class ScratchDetector {
             if (isScratchStatus(cell.text())) return true;
         }
 
-        String rowText = compact(row.text());
-        if (containsExplicitScratchWord(rowText)) return true;
-
         for (Element node : row.getAllElements()) {
             if (node == row) continue;
             for (String attrName : new String[]{"alt", "title", "aria-label", "data-status", "data-state", "class"}) {
