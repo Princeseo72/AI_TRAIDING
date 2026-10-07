@@ -33,7 +33,7 @@ function loadPreRaceContext(){
   }
 }
 function uiStatus(code){
- const m={NO_LOCAL_OUTCOME_DATA:'지역 확정결과 없음',LOW_SAMPLE:'지역 표본 부족',READY:'준비 완료',HIST_PENDING:'과거자료 구축 중',HIST_INVALID:'과거자료 오류',ACTIVE:'검증 완료',UNVERIFIED:'검증 표본 부족',FALLBACK:'기본모델',NO_SAME_DAY_SAMPLE:'당일 선행경주 없음',INSUFFICIENT_FIELDS:'편향 산출자료 부족',RATING_PENDING:'평가자료 구축 중',AVAILABLE:'평가자료 사용 가능',PENDING:'준비 중',UNAVAILABLE:'사용 불가',LOW:'낮음',MID:'보통',HIGH:'높음'};return m[String(code||'')]||String(code||'미준비').replaceAll('_',' ');
+ const m={NO_LOCAL_OUTCOME_DATA:'지역 확정결과 없음',LOW_SAMPLE:'지역 표본 부족',READY:'준비 완료',HIST_PENDING:'과거자료 구축 중',HIST_INVALID:'과거자료 오류',PUBLIC_HISTORY_READY:'공개 과거전적 연결',ACTIVE:'검증 완료',UNVERIFIED:'검증 표본 부족',FALLBACK:'기본모델',NO_SAME_DAY_SAMPLE:'당일 선행경주 없음',INSUFFICIENT_FIELDS:'편향 산출자료 부족',RATING_PENDING:'평가자료 구축 중',AVAILABLE:'평가자료 사용 가능',PENDING:'준비 중',UNAVAILABLE:'사용 불가',LOW:'낮음',MID:'보통',HIGH:'높음'};return m[String(code||'')]||String(code||'미준비').replaceAll('_',' ');
 }
 function preRaceBriefing(){
   if(!S.gumvit.verified)return '';
@@ -45,7 +45,7 @@ function preRaceBriefing(){
   return `<section class="card briefing"><div class="row spread"><h2>PEGASUS 사전 브리핑</h2><span class="${u.level==='HIGH'?'warn':'good'}">신뢰도 ${esc(uiStatus(u.level||'LOW'))}</span></div>
     <div class="grid g4">
       <div><label>지역 프로파일</label><b>${esc(uiStatus(rp.status||'미준비'))}</b><small>${rp.sampleCount||0}경주</small></div>
-      <div><label>Hist 상태</label><b class="${hist.status==='HIST_PENDING'?'warn':'good'}">${esc(uiStatus(hist.status||'HIST_PENDING'))}</b><small>유사 ${hist.similarRaceCount||0}경주</small></div>
+      <div><label>Hist 상태</label><b class="${hist.status==='HIST_PENDING'?'warn':'good'}">${esc(uiStatus(hist.status||'HIST_PENDING'))}</b><small>${hist.runnerSampleCount?`전적 ${hist.runnerSampleCount}두 · 누적 ${hist.similarRaceCount||0}전`:`유사 ${hist.similarRaceCount||0}경주`}</small></div>
       <div><label>Champion</label><b>${esc(ch.modelVersion||'BASELINE')}</b><small>${esc(uiStatus(ch.status||'FALLBACK'))}</small></div>
       <div><label>Track Bias</label><b>${esc(uiStatus(tb.status||'없음'))}</b><small>당일 ${tb.sampleCount||0}경주</small></div>
     </div>
