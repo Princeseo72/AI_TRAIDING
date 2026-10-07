@@ -125,7 +125,7 @@ function buildInput(){
 }
 function buildPegasusInput(){
   const b=buildInput();
-  return {horses:S.horses.map(h=>({...h,active:true,excluded:false})),pools:b.pools,preRaceContext:S.preRaceContext||{historicalPrior:{status:'HIST_PENDING'},regionalProfile:{sampleCount:0}},legacyResult:S.result};
+  return {horses:S.horses.map(h=>({...h,active:true,excluded:false})),pools:b.pools,preRaceContext:S.preRaceContext||{historicalPrior:{status:'HIST_PENDING'},regionalProfile:{sampleCount:0}},learningModel:b.learningModel,legacyResult:S.result};
 }
 function start(){
   if(!refreshField('분석 전 출전마 재검증'))return;
