@@ -1,9 +1,9 @@
 (function(global){
   'use strict';
   const CONFIG={learningRate:.02,maxDeltaPerRace:.015,minSamples:20,regionalMinSamples:12,weightMin:-.25,weightMax:.65,regularization:.01,regressionTolerance:.02,rollingWindow:20};
-  const FEATURES=['share','lmi','crossPool','popularity','stability','structure'];
+  const FEATURES=['share','lmi','crossPool','popularity','stability','structure','horseRating','jockeyRating','trainerRating','regionalPrior','historicalPrior'];
   const SCORES=['DarkHorseScore','FavoriteScore','AbilityScore','WinScore','Place2Score','Place3Score'];
-  const BASE={share:.32,lmi:.24,crossPool:.20,popularity:.10,stability:.08,structure:.06};
+  const BASE={share:.24,lmi:.16,crossPool:.13,popularity:.07,stability:.06,structure:.05,horseRating:.09,jockeyRating:.05,trainerRating:.04,regionalPrior:.05,historicalPrior:.06};
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
   const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 
@@ -45,7 +45,12 @@
       crossPool:clamp(d,-1,1),
       popularity:clamp(Number(f.popularityPrior)||0,0,1),
       stability:clamp(Number(f.stability)||0,0,1),
-      structure:clamp(Number(f.structureEvidence)||0,0,1)
+      structure:clamp(Number(f.structureEvidence)||0,0,1),
+      horseRating:clamp(Number(f.horseRatingPrior)||0,0,1),
+      jockeyRating:clamp(Number(f.jockeyRatingPrior)||0,0,1),
+      trainerRating:clamp(Number(f.trainerRatingPrior)||0,0,1),
+      regionalPrior:clamp(Number(f.regionalPrior)||0,0,1),
+      historicalPrior:clamp(Number(f.historicalPrior)||0,0,1)
     };
   }
   const TARGET={
