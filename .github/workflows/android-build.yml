@@ -41,8 +41,7 @@ jobs:
       - name: Run race parser deterministic tests
         run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.KraRaceParserTest
 
-      - name: Run dual-source live diagnostic
-        continue-on-error: true
+      - name: Run dual-source live diagnostic (blocking)
         run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.DualSourceLiveSmokeTest
 
       - name: Run excluded-runner JS boundary tests
