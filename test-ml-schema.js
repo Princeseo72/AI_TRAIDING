@@ -4,8 +4,11 @@ const db=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/RaceDbHelper
 const store=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
 for(const t of ['ml_models','ml_training_examples','ml_training_events'])assert(db.includes(t),`${t} missing`);
 assert(db.includes('UNIQUE(analysis_record_id)')||db.includes('UNIQUE(race_id,analysis_record_id)')||db.includes('analysis_record_id INTEGER NOT NULL UNIQUE'),'training uniqueness missing');
-for(const fn of ['getActiveModel','savePredictionSnapshot','getMlStatus','recordTrainingEvent'])assert(store.includes(fn),`${fn} bridge missing`);
+for(const fn of ['getActiveModel','getLearningState','savePredictionSnapshot','getMlStatus','recordTrainingBundle'])assert(store.includes(fn),`${fn} bridge missing`);
 assert(store.includes('prediction_snapshot_json'),'immutable prediction snapshot missing');
 assert(store.includes("status='ACTIVE'")||store.includes('status=\"ACTIVE\"'),'ACTIVE model query missing');
 assert(store.includes('DELETE FROM ml_training_examples')&&store.includes("status<>'ACTIVE'"),'cleanup must preserve ACTIVE model');
 console.log('ML SCHEMA CONTRACT TESTS PASSED');
+
+assert(store.includes('rolling20'),'rolling-20 ML metrics missing');
+assert(store.includes('regionalTraining'),'regional training state missing');
