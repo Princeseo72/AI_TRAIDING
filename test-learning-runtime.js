@@ -39,3 +39,15 @@ const ev=M.evaluate(forced.prediction,actual);
 assert(ev.first===1&&ev.second===1&&ev.third===1&&ev.oddsExact123===1,'finish prediction evaluation wiring failed');
 assert(ev.roleTop3<1,'role tags incorrectly treated as finish truth');
 console.log('LEARNING + PEGASUS RUNTIME TESTS PASSED');
+
+const ctxFeatures={1:{winShareT5:.1,winLmi:0,crossPoolDivergence:0,popularityPrior:.2,stability:.5,structureEvidence:.5,horseRatingPrior:.9,jockeyRatingPrior:.8,trainerRatingPrior:.7,regionalPrior:.6,historicalPrior:.5},2:{winShareT5:.2,winLmi:0,crossPoolDivergence:0,popularityPrior:.3,stability:.5,structureEvidence:.5},3:{winShareT5:.3,winLmi:0,crossPoolDivergence:0,popularityPrior:.4,stability:.5,structureEvidence:.5}};
+const ctxModel=RacingML.createBaselineModel('GLOBAL');
+const ctxEx={raceKey:'CTX-CHANGE',region:'GLOBAL',features:ctxFeatures,prediction:{finishPrediction:[{horseNumber:2},{horseNumber:3},{horseNumber:1}],rolePrediction:[{horseNumber:2},{horseNumber:3},{horseNumber:1}],finalCombinations:{}},actual:{top3:[1,2,3],payouts:{}}};
+const ctxTrain=RacingML.trainCandidate({model:ctxModel,example:ctxEx});
+assert(ctxTrain.ok,'context learning must train');
+assert(Math.abs(ctxTrain.weightDelta.WinScore.horseRating)>0,'horse rating must alter learned weights');
+assert(Math.abs(ctxTrain.weightDelta.WinScore.jockeyRating)>0,'jockey rating must alter learned weights');
+assert(Math.abs(ctxTrain.weightDelta.WinScore.trainerRating)>0,'trainer rating must alter learned weights');
+assert(Math.abs(ctxTrain.weightDelta.WinScore.regionalPrior)>0,'regional prior must alter learned weights');
+assert(Math.abs(ctxTrain.weightDelta.WinScore.historicalPrior)>0,'historical prior must alter learned weights');
+console.log('context-learning-v3 PASS');
