@@ -296,7 +296,7 @@ public class GumvitBridge {
                .put("canary","2026-10-03|제주|1R").put("duplicateResultLookup",false)
                .put("preRaceSourcePolicy","PUBLIC_CHULMA_DETAIL_ENTRY_TABLE_ONLY + KRA_CHANGE; RESULT_DETAIL_POST_RACE_ONLY");
             boolean modules=true;try{Class.forName("com.kplay.horseracing.gumvit.GumvitPageParser");Class.forName("com.kplay.horseracing.gumvit.KraRaceParser");Class.forName("com.kplay.horseracing.gumvit.ScratchDetector");}catch(Throwable x){modules=false;}
-            java.util.Map<Integer,JSONObject> historyCanary=gumvitPublicAbility("2026-10-03","서울",1,"6");
+            java.util.Map<Integer,JSONObject> historyCanary=gumvitPublicAbility("2026-09-12","서울",1,"6");
             boolean historySource=historyCanary.size()>0;
             out.put("modules",modules).put("publicHistorySource",historySource).put("publicHistoryRows",historyCanary.size()).put("ok",parser&&modules&&historySource);
             if(!parser)out.put("error","검빛 HTTP 응답 내 visible 출전마 table parser 실패");
