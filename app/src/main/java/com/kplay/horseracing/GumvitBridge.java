@@ -34,6 +34,7 @@ public class GumvitBridge {
     }
 
     private static String code(String region){if("부산경남".equals(region)||"부산".equals(region))return "B";if("제주".equals(region))return "J";return "S";}
+    private static int kraMeet(String region){if("제주".equals(region))return 2;if("부산경남".equals(region)||"부산".equals(region))return 3;return 1;}
     private static String typeCode(String date,String region){if(!"서울".equals(region))return "5";try{return LocalDate.parse(date).getDayOfWeek()==DayOfWeek.SUNDAY?"7":"6";}catch(Exception e){return "6";}}
     private static String normalizeDate(String y,String m,String d){return String.format("%s-%02d-%02d",y,Integer.parseInt(m),Integer.parseInt(d));}
     private static String actualDate(Document doc){Matcher m=DATE_PATTERN.matcher(doc.body()==null?doc.text():doc.body().text());return m.find()?normalizeDate(m.group(1),m.group(2),m.group(3)):"";}
@@ -99,6 +100,58 @@ public class GumvitBridge {
             }
         }
         return out;
+    }
+
+    private JSONObject fetchKraRace(String date,String region,int raceNo)throws Exception{
+        String weightUrl="https://race.kra.co.kr/thisweekrace/ThisWeekWeight.do";
+        Document weight=getSupplement(weightUrl);
+        if(!KraRaceParser.raceExists(weight,date,region,raceNo))
+            throw new Exception("KRA 경주 식별 실패: "+date+" "+region+" "+raceNo+"R");
+
+        int meet=kraMeet(region);
+        String ridingUrl="https://race.kra.co.kr/chulmainfo/Riding.do?Act=02&Sub=3&meet="+meet;
+        Document riding=getSupplement(ridingUrl);
+        JSONArray raw=KraRaceParser.parseRiding(riding,date,region,raceNo);
+        if(raw.length()==0)throw new Exception("KRA 출전마 표 미검출: "+date+" "+region+" "+raceNo+"R");
+
+        Set<Integer> scratches=kraChangeScratches(date,region,raceNo);
+        JSONArray horses=new JSONArray(),excluded=new JSONArray();
+        Set<Integer> seen=new HashSet<>();
+        for(int i=0;i<raw.length();i++){
+            JSONObject h=raw.getJSONObject(i);
+            int no=h.optInt("number");
+            if(no<1||seen.contains(no))continue;seen.add(no);
+            boolean active=!scratches.contains(no);
+            h.put("active",active).put("excluded",!active)
+                    .put("excludeSource",active?"":"KRA_CHANGE")
+                    .put("source","KRA_RIDING");
+            if(active)horses.put(h);else excluded.put(h);
+        }
+        if(horses.length()==0)throw new Exception("KRA 유효 출전마 없음");
+        return new JSONObject().put("ok",true).put("verified",true)
+                .put("source",ridingUrl).put("sourceProvider","KRA")
+                .put("requestedDate",date).put("actualDate",date)
+                .put("requestedRaceNo",raceNo).put("actualRaceNo",raceNo)
+                .put("region",region).put("activeCount",horses.length())
+                .put("excludedCount",excluded.length()).put("supplementalSource","KRA_THIS_WEEK_CHANGE")
+                .put("horses",horses).put("excludedHorses",excluded);
+    }
+
+    private JSONObject fetchResilient(String date,String region,int raceNo)throws Exception{
+        Exception gumvitError=null;
+        try{
+            JSONObject g=fetch(date,region,raceNo);
+            g.put("sourceProvider","GUMVIT");
+            return g;
+        }catch(Exception e){gumvitError=e;}
+        try{
+            JSONObject k=fetchKraRace(date,region,raceNo);
+            k.put("fallbackFrom","GUMVIT");
+            if(gumvitError!=null)k.put("primaryError",gumvitError.getMessage());
+            return k;
+        }catch(Exception kraError){
+            throw new Exception("경주정보 이중조회 실패 / 검빛: "+(gumvitError==null?"미상":gumvitError.getMessage())+" / KRA: "+kraError.getMessage());
+        }
     }
 
     private Set<Integer> resultScratchNumbers(String date,String region,int raceNo)throws Exception{
@@ -188,7 +241,7 @@ public class GumvitBridge {
         return new JSONObject().put("ok",true).put("verified",true).put("date",pd).put("raceNo",pr).put("region",region).put("source",url).put("finishers",finishers).put("excludedHorses",excluded).put("payouts",payouts);
     }
 
-    @JavascriptInterface public String fetchRace(String date,String region,int raceNo){try{return fetch(date,region,raceNo).toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
-    @JavascriptInterface public String verifyRace(String date,String region,int raceNo,String expectedHorseNumbersJson){try{JSONObject fresh=fetch(date,region,raceNo);JSONArray expected=new JSONArray(expectedHorseNumbersJson),actual=fresh.getJSONArray("horses");Set<Integer> e=new HashSet<>(),a=new HashSet<>();for(int i=0;i<expected.length();i++)e.add(expected.getInt(i));for(int i=0;i<actual.length();i++)a.add(actual.getJSONObject(i).getInt("number"));JSONArray missing=new JSONArray(),added=new JSONArray();for(Integer n:e)if(!a.contains(n))missing.put(n);for(Integer n:a)if(!e.contains(n))added.put(n);boolean same=missing.length()==0&&added.length()==0;return new JSONObject().put("ok",same).put("verified",same).put("activeCount",fresh.getInt("activeCount")).put("excludedCount",fresh.getInt("excludedCount")).put("missing",missing).put("added",added).put("source",fresh.getString("source")).put("error",same?"":"출전마 구성이 달라졌습니다.").toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
+    @JavascriptInterface public String fetchRace(String date,String region,int raceNo){try{return fetchResilient(date,region,raceNo).toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
+    @JavascriptInterface public String verifyRace(String date,String region,int raceNo,String expectedHorseNumbersJson){try{JSONObject fresh=fetchResilient(date,region,raceNo);JSONArray expected=new JSONArray(expectedHorseNumbersJson),actual=fresh.getJSONArray("horses");Set<Integer> e=new HashSet<>(),a=new HashSet<>();for(int i=0;i<expected.length();i++)e.add(expected.getInt(i));for(int i=0;i<actual.length();i++)a.add(actual.getJSONObject(i).getInt("number"));JSONArray missing=new JSONArray(),added=new JSONArray();for(Integer n:e)if(!a.contains(n))missing.put(n);for(Integer n:a)if(!e.contains(n))added.put(n);boolean same=missing.length()==0&&added.length()==0;return new JSONObject().put("ok",same).put("verified",same).put("activeCount",fresh.getInt("activeCount")).put("excludedCount",fresh.getInt("excludedCount")).put("missing",missing).put("added",added).put("source",fresh.getString("source")).put("error",same?"":"출전마 구성이 달라졌습니다.").toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
     @JavascriptInterface public String fetchRaceResult(String date,String region,int raceNo){try{return fetchResult(date,region,raceNo).toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
 }
