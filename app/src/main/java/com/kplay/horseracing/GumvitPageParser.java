@@ -38,8 +38,20 @@ final class GumvitPageParser {
         return false;
     }
 
+    private static boolean requestedDateMatchesLocation(Document doc,String date){
+        if(doc==null||date==null||date.isEmpty())return false;
+        String loc=doc.location()==null?"":doc.location();
+        return loc.contains("m_date="+date)||loc.contains("racedate="+date);
+    }
+
     static boolean identityMatches(Document doc,String date,String region,int raceNo){
-        return date.equals(actualDate(doc)) && raceNo==actualRaceNo(doc) && regionMatches(doc,region);
+        if(doc==null||raceNo!=actualRaceNo(doc)||!regionMatches(doc,region))return false;
+        String parsed=actualDate(doc);
+        if(date.equals(parsed))return true;
+        // Gumvit can omit/alter the visible date for Android/mobile UA. In that case,
+        // accept only when the response still belongs to the exact requested-date URL
+        // AND contains the real popularity entry table. Never accept a different parsed date.
+        return parsed.isEmpty() && requestedDateMatchesLocation(doc,date) && findEntryTable(doc)!=null;
     }
 
     static Element findEntryTable(Document doc){
