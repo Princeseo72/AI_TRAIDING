@@ -79,8 +79,8 @@ public class IntroActivity extends Activity {
                 row(internetState,internet?"PASS":"FAIL");
                 if(!internet){ finishGate(false,"인터넷 연결이 없습니다. 실시간 분석을 시작할 수 없습니다."); return; }
 
-                update(25,"2/5 검빛 접속 확인","검빛 경마정보 서버에 실제 HTTP 요청을 수행합니다.");
-                gumvit=probe(GUMVIT,"gumvit");
+                update(25,"2/5 검빛 Parser 자가진단","실제 과거경주 2026-10-03 제주 2R을 1회 조회해 경주식별·출전표 Parser까지 검증합니다.");
+                gumvit=gumvitParserProbe();
                 row(gumvitState,gumvit?"PASS":"WARN");
                 update(43,"3/5 서울경마(KRA) 접속 확인","KRA 공식 경마정보 서버에 실제 HTTP 요청을 수행합니다.");
                 kra=probe(KRA,"kra");
