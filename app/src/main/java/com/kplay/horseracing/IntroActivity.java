@@ -31,7 +31,7 @@ public class IntroActivity extends Activity {
     private Button retry;
     private volatile boolean destroyed;
 
-    private static final String GUMVIT = "https://www.gumvit.com/statv40/";
+    private static final String GUMVIT_CANARY = "https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=2&type=6";
     private static final String KRA = "https://race.kra.co.kr/thisweekrace/ThisWeekWeight.do";
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -114,6 +114,24 @@ public class IntroActivity extends Activity {
             NetworkCapabilities c=cm.getNetworkCapabilities(n);
             return c!=null && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
         }catch(Exception e){ return false; }
+    }
+
+    private boolean gumvitParserProbe(){
+        try{
+            org.jsoup.nodes.Document d=Jsoup.connect(GUMVIT_CANARY)
+                    .userAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36")
+                    .referrer("https://www.gumvit.com/statv40/")
+                    .timeout(7000).get();
+            if(!GumvitPageParser.identityMatches(d,"2026-10-03","제주",2))return false;
+            org.jsoup.nodes.Element table=GumvitPageParser.findEntryTable(d);
+            if(table==null)return false;
+            int runners=0;
+            for(org.jsoup.nodes.Element tr:table.select("tr")){
+                org.jsoup.select.Elements td=tr.select("td");
+                if(!td.isEmpty() && td.get(0).text().trim().matches("\\d{1,2}"))runners++;
+            }
+            return runners>=2;
+        }catch(Exception e){return false;}
     }
 
     private boolean probe(String url,String marker){
