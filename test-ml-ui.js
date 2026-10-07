@@ -6,5 +6,5 @@ for(const t of ['역할형 예상착순','배당형 예상착순','최종 승식
 assert(app.includes("['복병마 1착','인기마 2착','실력마 3착']"),'role labels missing');
 assert(app.includes('finalCombinations'),'final combinations UI missing');
 assert(app.includes('weightDelta'),'weight delta visual missing');
-for(const c of ['predictionGrid','final8','deltaRow','metricStrip'])assert(css.includes(`.${c}`),`${c} style missing`);
+for(const c of ['predictionGrid','final8','deltaRow','metricStrip','mlMetrics','metricBlock'])assert(css.includes(`.${c}`),`${c} style missing`);
 console.log('ML UI CONTRACT TESTS PASSED');
