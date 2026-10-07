@@ -166,7 +166,7 @@ function comparePredictions(){
 function closedLoopView(){
   const c=S.closedLoop;if(!c?.ok)return '';
   const stepSet=new Set(c.steps||[]);
-  const names=['결과 검증','지역 프로파일 갱신','Rating 갱신','Track Bias 상태 갱신','Drift 검사','Next-Race Feature Materialization'];
+  const names=['결과 검증','지역 프로파일 갱신','Rating 갱신','Track Bias 상태 갱신','Blend/Calibration 갱신','Drift 검사','Next-Race Feature Materialization'];
   return `<section class="card"><div class="row spread"><h2>폐쇄루프 학습</h2><span class="good">다음 경주 준비 ${esc(c.materialization?.status||'READY_PARTIAL')}</span></div>
     <div class="learningSteps">${names.map(x=>`<div class="log">${stepSet.has(x)?'✓':'!'} ${x}</div>`).join('')}</div>
     <div class="sub">Drift ${esc(c.drift?.state||'미평가')} · Context ${esc(c.materialization?.contextVersion||'-')} · ${Number(c.durationMs||0).toFixed(1)}ms</div>
