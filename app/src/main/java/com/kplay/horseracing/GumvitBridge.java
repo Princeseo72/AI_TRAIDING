@@ -190,29 +190,20 @@ public class GumvitBridge {
         // requests and can leak post-race information during historical Replay.
         Set<Integer> kraScratches=kraChangeScratches(date,region,raceNo);
         Set<Integer> resultScratches=new HashSet<>(kraScratches);
-        Element target=GumvitPageParser.findEntryTable(doc);
-        if(target==null)throw new Exception("검빛 출전마 인기도 표 미검출");
-        Element header=null;for(Element tr:target.select("tr")){String x=tr.text().replace(" ","").replace("\u00A0","");if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수")){header=tr;break;}}
-        if(header==null)throw new Exception("검빛 출전마 표 헤더 미검출");
-        Elements hh=header.select("th,td");int ino=indexOfHeader(hh,"마번"),iname=indexOfHeader(hh,"마명"),irec=indexOfHeader(hh,"전적"),itr=indexOfHeader(hh,"조교사"),ij=indexOfHeader(hh,"기수");
-        if(ino<0||iname<0||itr<0||ij<0)throw new Exception("검빛 출전마 열 구조 오류");
-        JSONArray horses=new JSONArray(),excluded=new JSONArray();Set<Integer> seen=new HashSet<>();
-        for(Element tr:target.select("tr")){
-            if(tr==header)continue;Elements td=tr.select("td");int need=Math.max(Math.max(ino,iname),Math.max(itr,ij));if(td.size()<=need)continue;String ns=td.get(ino).text().trim();if(!ns.matches("\\d{1,2}"))continue;
-            int no=Integer.parseInt(ns);if(no<1||no>30||seen.contains(no))continue;String name=td.get(iname).text().trim();if(name.isEmpty()||"마명".equals(name))continue;seen.add(no);
-            boolean entryScratch=entryExcluded(tr),resultScratch=resultScratches.contains(no),active=!entryScratch&&!resultScratch;
-            JSONObject h=new JSONObject().put("number",no).put("name",name).put("record",irec>=0&&td.size()>irec?td.get(irec).text().trim():"")
-                    .put("trainer",td.size()>itr?td.get(itr).text().trim().replaceAll("\\(\\d+\\)$",""):"")
-                    .put("jockey",td.size()>ij?td.get(ij).text().trim():"").put("active",active).put("excluded",!active)
-                    .put("excludeSource",resultScratch?(kraScratches.contains(no)?"KRA_CHANGE_OR_RESULT":"RESULT_STATUS"):(entryScratch?"ENTRY_STATUS":""));
-            StringBuilder tail=new StringBuilder();for(int i=5;i<td.size();i++){String x=td.get(i).text().trim();if(!x.isEmpty()){if(tail.length()>0)tail.append(' ');tail.append(x);}}h.put("expert",tail.toString());
-            String pop="";for(int i=td.size()-1;i>=5;i--){String x=td.get(i).text().trim();if(x.matches("\\d{1,4}")){pop=x;break;}}h.put("popularity",pop);
+        java.util.List<GumvitPageParser.Entry> entries=GumvitPageParser.parseEntries(doc);
+        JSONArray horses=new JSONArray(),excluded=new JSONArray();
+        for(GumvitPageParser.Entry e:entries){
+            int no=e.number; boolean resultScratch=resultScratches.contains(no),active=!e.entryExcluded&&!resultScratch;
+            JSONObject h=new JSONObject().put("number",no).put("name",e.name).put("record",e.record)
+                    .put("trainer",e.trainer).put("jockey",e.jockey).put("active",active).put("excluded",!active)
+                    .put("excludeSource",resultScratch?(kraScratches.contains(no)?"KRA_CHANGE_OR_RESULT":"RESULT_STATUS"):(e.entryExcluded?"ENTRY_STATUS":""))
+                    .put("expert",e.expert).put("popularity",e.popularity);
             if(active)horses.put(h);else excluded.put(h);
         }
         if(horses.length()==0){
             String title=doc.title()==null?"":doc.title();
             String body=doc.body()==null?doc.text():doc.body().text();
-            String state=body.contains("이용권한이 없습니다")?"RESPONSE_RESTRICTED":"DOM_CHANGED_OR_EMPTY";
+            String state=GumvitPageParser.findEntryTable(doc)==null?"ENTRY_TABLE_MISSING":"ENTRY_ROWS_EMPTY";
             throw new Exception("검빛 출전마 파싱 실패 ["+state+"] title="+title+" tables="+doc.select("table").size()+" url="+doc.location());
         }
         JSONObject out=new JSONObject().put("ok",true).put("verified",true).put("source",url).put("requestedDate",date).put("actualDate",parsedDate)
