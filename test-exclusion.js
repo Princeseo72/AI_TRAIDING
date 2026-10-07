@@ -11,7 +11,9 @@ assert(gumvit.includes('ScratchDetector.isScratchStatus(s)'),'result status must
 assert(detector.includes('출전취소')&&detector.includes('출전제외'),'explicit scratch statuses missing');
 assert(detector.includes('alt')&&detector.includes('title')&&detector.includes('data-status'),'nested status attributes missing');
 assert(!detector.includes('style.contains("line-through")'),'generic strike-through must not exclude without status evidence');
-assert(gumvit.includes('boolean resultScratch=resultScratches.contains(no),active=!e.entryExcluded&&!resultScratch'),'active state must combine shared entry/result scratch flags');
+assert(gumvit.includes('gumvitChangeScratches(date,region,raceNo)'),'public Gumvit change bulletin must be consulted');
+assert(gumvit.includes('resultScratches.addAll(kraScratches)'),'Gumvit and KRA exclusion evidence must be unioned');
+assert(gumvit.includes('boolean resultScratch=resultScratches.contains(no),active=!e.entryExcluded&&!resultScratch'),'active state must combine shared entry/change scratch flags');
 assert(app.includes('activeHorses(')&&app.includes('requireRunnerGuard'),'UI must derive runners through required RunnerGuard');
 assert(app.includes('RunnerGuard.validateNoExcludedLeak'),'UI must reject excluded-runner pool leakage');
 assert(app.includes('RunnerGuard.isKeyAllowed'),'manual combo entry must reject excluded runners');
