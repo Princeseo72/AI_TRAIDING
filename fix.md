@@ -225,3 +225,9 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 <!-- ALL-GO compile repair rerun -->
 
 <!-- ALL-GO finite-rating rerun -->
+
+## FIX-006 Android Gumvit premium-section false positive
+- 2026-10-03 제주 1R page contains a valid visible runner table (10 runners) and also a separate premium-section message '이용권한이 없습니다'.
+- Premium restriction text MUST NOT invalidate the visible entry table.
+- Production and live regression MUST share GumvitPageParser.parseEntries().
+- Android production UA/referrer live regression for 제주 2026-10-03 1R MUST parse exactly 10 runners before APK release.
