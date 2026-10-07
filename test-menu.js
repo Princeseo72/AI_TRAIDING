@@ -7,7 +7,7 @@ const main=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/MainActivi
 const checks=[
  ['경주 선택',"steps=['경주 선택'"],
  ['20분 입력','20분 전 배당'],['5분 입력','5분 전 배당'],['재분석','분석 재실행'],
- ['역할형 예측','역할형 예상착순'],['배당형 예측','배당형 예상착순'],['8조합','최종 승식 8조합'],
+ ['펀더멘털 예측','펀더멘털 예상'],['시장·배당 예측','시장·배당 예상'],['8조합','최종 승식 8조합'],
  ['검빛 대조','검빛 경주 대조검증'],['경주결과 대조','경주결과 대조'],['ML 학습','ML 학습 상태'],
  ['빠른 불러오기','빠르게 불러오기'],['성능 재검증','성능 재검증'],['데이터 정리','데이터 정리'],['종료','종료']
 ];
@@ -20,6 +20,6 @@ assert(main.includes('finishAndRemoveTask')||main.includes('finishAffinity'),'re
 assert(app.includes('analysisEpoch'),'stale reanalysis guard missing');
 assert(app.includes('refreshField('),'race refresh guard missing');
 assert(app.includes('trainFromResult'),'result-to-learning pipeline missing');
-for(const action of ['입력/출전마 검증','Q/LMI 계산','Cross-Pool 분석','역할형·배당형 착순','최종 8조합·ML 보정'])assert(app.includes(action),`visible processing action missing: ${action}`);
-assert(app.includes('finalCombinations'),'eight-combination UI missing');
+for(const action of ['입력/출전마 검증','Hist Context','Regional Profile','Fundamental','Rating','Track Bias','Market T20/T5','Live Odds','Blend','Calibration','Ordered Finish','Final Eight','Model Integrity'])assert(app.includes(action),`visible processing action missing: ${action}`);
+assert(app.includes('finalEight'),'PEGASUS eight-combination UI missing');assert(app.includes('applyClosedLoopUpdate'),'closed-loop result pipeline missing');
 console.log('MENU/BRIDGE CONTRACT TESTS PASSED');
