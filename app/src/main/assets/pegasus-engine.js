@@ -44,7 +44,9 @@ function blendLayer(model,market,context){
 function calibrationLayer(blend,context){
  const cal=context?.calibrationModel;
  if(!cal||cal.status!=='ACTIVE')return{status:'CALIBRATION_PENDING',method:'IDENTITY_FALLBACK',p1:{...blend}};
- return{status:'CALIBRATED',method:cal.method||'stored',p1:{...blend}};
+ const strength=clamp(Number(cal?.params?.strength)||0,0,.5),n=Object.keys(blend).length,uniform=n?1/n:0,raw={};
+ for(const k of Object.keys(blend))raw[k]=(1-strength)*blend[k]+strength*uniform;
+ return{status:'CALIBRATED',method:cal.method||'stored',strength,p1:normalize(raw)};
 }
 function orderedLayer(p1){
  const horses=Object.keys(p1).map(Number),scenarios=[];
