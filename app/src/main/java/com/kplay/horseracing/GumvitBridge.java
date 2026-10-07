@@ -78,6 +78,18 @@ public class GumvitBridge {
         return date+"|"+region+"|"+raceNo;
     }
 
+    private Set<Integer> gumvitChangeScratches(String date,String region,int raceNo){
+        Set<Integer> out=new HashSet<>();
+        try{
+            String url="https://m.gumvit.com/statv40/horse_weight_news.html?c_menu=&loc="+code(region)+"&m_date="+date+"&race="+raceNo;
+            Document doc=getSupplement(url);
+            // This public page is already scoped by date/region/race. Parse only its
+            // explicit 말취소/출전표 변경 rows; never infer exclusion from blank odds.
+            out.addAll(ScratchDetector.changeScratchNumbers(doc,null,null,raceNo));
+        }catch(Exception ignored){}
+        return out;
+    }
+
     private Set<Integer> kraChangeScratches(String date,String region,int raceNo){
         String key=cacheKey(date,region,raceNo);
         long now=System.currentTimeMillis();
@@ -188,15 +200,17 @@ public class GumvitBridge {
 
         // Pre-race field loading must never query result_detail: it causes duplicate Gumvit
         // requests and can leak post-race information during historical Replay.
+        Set<Integer> gumvitScratches=gumvitChangeScratches(date,region,raceNo);
         Set<Integer> kraScratches=kraChangeScratches(date,region,raceNo);
-        Set<Integer> resultScratches=new HashSet<>(kraScratches);
+        Set<Integer> resultScratches=new HashSet<>(gumvitScratches);
+        resultScratches.addAll(kraScratches);
         java.util.List<GumvitPageParser.Entry> entries=GumvitPageParser.parseEntries(doc);
         JSONArray horses=new JSONArray(),excluded=new JSONArray();
         for(GumvitPageParser.Entry e:entries){
             int no=e.number; boolean resultScratch=resultScratches.contains(no),active=!e.entryExcluded&&!resultScratch;
             JSONObject h=new JSONObject().put("number",no).put("name",e.name).put("record",e.record)
                     .put("trainer",e.trainer).put("jockey",e.jockey).put("active",active).put("excluded",!active)
-                    .put("excludeSource",resultScratch?(kraScratches.contains(no)?"KRA_CHANGE_OR_RESULT":"RESULT_STATUS"):(e.entryExcluded?"ENTRY_STATUS":""))
+                    .put("excludeSource",resultScratch?(gumvitScratches.contains(no)?"GUMVIT_CHANGE":(kraScratches.contains(no)?"KRA_CHANGE":"CHANGE_STATUS")):(e.entryExcluded?"ENTRY_STATUS":""))
                     .put("expert",e.expert).put("popularity",e.popularity);
             if(active)horses.put(h);else excluded.put(h);
         }
@@ -208,7 +222,7 @@ public class GumvitBridge {
         }
         JSONObject out=new JSONObject().put("ok",true).put("verified",true).put("source",url).put("requestedDate",date).put("actualDate",parsedDate)
                 .put("requestedRaceNo",raceNo).put("actualRaceNo",parsedRace).put("region",region).put("activeCount",horses.length()).put("excludedCount",excluded.length())
-                .put("supplementalSource","KRA_THIS_WEEK_CHANGE").put("horses",horses).put("excludedHorses",excluded);
+                .put("supplementalSource","GUMVIT_PUBLIC_CHANGE+KRA_THIS_WEEK_CHANGE").put("horses",horses).put("excludedHorses",excluded);
         synchronized(RACE_CACHE){RACE_CACHE.put(ckey,new CacheEntry(now,new JSONObject(out.toString())));}
         return out;
     }
