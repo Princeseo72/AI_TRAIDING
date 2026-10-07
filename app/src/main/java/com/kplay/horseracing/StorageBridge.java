@@ -818,6 +818,33 @@ public class StorageBridge {
         }
     }
 
+    private JSONObject updateBlendCalibration(SQLiteDatabase db,String date,String region,JSONObject snapshot,JSONObject result)throws Exception{
+        JSONObject peg=snapshot.optJSONObject("pegasusResult");
+        if(peg==null)return new JSONObject().put("status","SKIPPED_NO_PEGASUS");
+        JSONObject attribution=evaluatePegasusSnapshot(snapshot,result);
+        int n=count(db,"SELECT COUNT(*) FROM race_outcomes WHERE region=? AND race_date<=?",new String[]{region,date});
+        double hit=attribution.optBoolean("p1Hit")?1.0:0.0;
+        // Conservative online blend: move at most 0.01/race and never infer from future races.
+        JSONObject prev=activeBlend(db,region);
+        double a=prev.optDouble("a",.30), b=prev.optDouble("b",.70);
+        double step=Math.min(.01,1.0/Math.max(20,n+1));
+        double target=hit>0?.35:.25;
+        a=Math.max(.15,Math.min(.55,a+Math.signum(target-a)*step)); b=1.0-a;
+        String bv="BLEND-ONLINE-"+region+"-"+date+"-"+n;
+        ContentValues bl=new ContentValues();bl.put("region",region);bl.put("blend_version",bv);
+        bl.put("coefficients_json",new JSONObject().put("a",a).put("b",b).toString());
+        bl.put("metrics_json",new JSONObject().put("samples",n).put("lastP1Hit",hit).toString());
+        bl.put("status",n>=20?"ACTIVE":"TRAINING");db.insertWithOnConflict("blend_models",null,bl,SQLiteDatabase.CONFLICT_REPLACE);
+
+        // Calibration uses bounded shrinkage until enough verified outcomes exist.
+        String cv="CAL-ONLINE-"+region+"-"+date+"-"+n;
+        ContentValues cal=new ContentValues();cal.put("region",region);cal.put("calibration_version",cv);cal.put("method","SHRINKAGE-v1");
+        cal.put("params_json",new JSONObject().put("strength",Math.min(.25,n/200.0)).toString());
+        cal.put("metrics_json",new JSONObject().put("samples",n).put("lastP1Hit",hit).toString());
+        cal.put("status",n>=20?"ACTIVE":"TRAINING");db.insertWithOnConflict("calibration_models",null,cal,SQLiteDatabase.CONFLICT_REPLACE);
+        return new JSONObject().put("status",n>=20?"ACTIVE":"TRAINING").put("blendVersion",bv).put("calibrationVersion",cv).put("samples",n);
+    }
+
     private JSONObject recordDriftState(SQLiteDatabase db, String date, String region) throws Exception {
         int samples = count(db, "SELECT COUNT(*) FROM race_outcomes WHERE region=? AND race_date<=?", new String[]{region, date});
         String state = samples < 20 ? "INSUFFICIENT_SAMPLE" : "MONITORING_NO_VALIDATED_BASELINE";
@@ -936,9 +963,9 @@ public class StorageBridge {
             db.setTransactionSuccessful();
             JSONArray steps = new JSONArray()
                     .put("결과 검증").put("지역 프로파일 갱신").put("Rating 갱신")
-                    .put("Track Bias 상태 갱신").put("Drift 검사").put("Next-Race Feature Materialization");
+                    .put("Track Bias 상태 갱신").put("Blend/Calibration 갱신").put("Drift 검사").put("Next-Race Feature Materialization");
             return new JSONObject().put("ok", true).put("steps", steps)
-                    .put("drift", drift).put("materialization", materialized)
+                    .put("modelUpdate",modelUpdate).put("drift", drift).put("materialization", materialized)
                     .put("durationMs", (System.nanoTime() - started) / 1_000_000.0).toString();
         } catch (Exception e) {
             return error(e.getMessage());
