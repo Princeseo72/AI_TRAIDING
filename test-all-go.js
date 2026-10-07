@@ -7,7 +7,7 @@ const app=fs.readFileSync('./app/src/main/assets/app.js','utf8');
 const wf=fs.readFileSync('./.github/workflows/android-build.yml','utf8');
 ok(!/Run dual-source live diagnostic\n\s+continue-on-error:\s*true/.test(wf),'AG-001 live diagnostic must block release');
 ok(gumvit.includes('GumvitPageParser.parseEntries(doc)'),'production must use shared entry parser');
-ok(gumvit.includes('PREMIUM_RESTRICTION_IGNORED'),'Android premium restriction regression not diagnosed');
+ok(gumvit.includes('PUBLIC_CHULMA_DETAIL_ENTRY_TABLE_ONLY'),'pre-race source policy must be public entry table only');
 ok(parser.includes('static List<Entry> parseEntries'),'shared Gumvit entry parser missing');
 for(const x of ['saveAnalysis','fetchRaceResult','trainFromResult','applyClosedLoopUpdate','loadAnalysis'])ok(app.includes(x),'menu/storage/review path missing '+x);
 for(const x of ['runnerRatings(db,horses,region)','activeBlend(db,region)','activeCalibration(db,region)','updateBlendCalibration(db, date, region, snapshot, result)'])ok(storage.includes(x),'missing '+x);
