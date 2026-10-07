@@ -16,9 +16,9 @@ assert(app.includes('RunnerGuard.validateNoExcludedLeak'),'UI must reject exclud
 assert(app.includes('RunnerGuard.isKeyAllowed'),'manual combo entry must reject excluded runners');
 assert(app.includes('excludedHorses:S.excludedHorses'),'saved snapshots must preserve excluded-runner evidence');
 assert(app.includes("S.pools={WIN:{T20:S.horses.map"),'WIN rows must be built from guarded active horses only');
-assert(app.includes('manualExcludedNumbers'),'manual exclusion must survive T20/T5 refreshes');
-assert(app.includes('manuallyExcludeHorse'),'manual hard-exclusion control missing');
-assert(app.includes('manualExclude'),'race screen must expose exclusion safety control');
+assert(!app.includes('manualExclude'),'정상 출전마 행에 수동 제외 버튼을 노출하면 안 됨');
+assert(!app.includes('manuallyExcludeHorse'),'수동 제외 상태가 자동 검증 로직을 덮어쓰면 안 됨');
+assert(!app.includes('manualExcludedNumbers'),'수동 제외 상태는 자동 출전마 검증과 분리해야 함');
 assert(!detector.includes('RESULT_ROW_SCRATCH'),'page-global result regex must not drive exclusion');
 assert(!detector.includes('DECISION_NUMBER'),'page-global decision regex must not drive exclusion');
 assert(!detector.includes('REPORT_CIRCLED'),'circled-number page-global inference must not drive exclusion');
