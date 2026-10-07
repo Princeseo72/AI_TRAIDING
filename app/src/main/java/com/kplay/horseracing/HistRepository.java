@@ -28,6 +28,31 @@ public final class HistRepository{
   long outcomes;try(Cursor c=d.rawQuery("SELECT COUNT(*) FROM runner u JOIN race r ON r.race_uid=u.race_uid"+(track==null?" WHERE ":" WHERE r.track_code=? AND ")+"u.finish_rank IS NOT NULL",a)){c.moveToFirst();outcomes=c.getLong(0);}
   return new JSONObject().put("raceSamples",races).put("outcomeRows",outcomes).put("poolStats",pools).put("status",races>=20&&outcomes>=60?"CANDIDATE_READY":"LOW_SAMPLE");
  }
+ JSONObject replayTrain()throws Exception{if(!file.exists())return new JSONObject().put("ok",false).put("error","HIST 파일 미입력");SQLiteDatabase d=SQLiteDatabase.openDatabase(file.getAbsolutePath(),null,SQLiteDatabase.OPEN_READONLY);try{
+  JSONObject regions=new JSONObject();JSONObject global=replayScope(d,null);for(String t:TRACKS)regions.put(t,replayScope(d,t));
+  boolean ready=global.optInt("evaluatedRaces",0)>=100&&global.optDouble("brierModel",9)<global.optDouble("brierMarket",9);
+  return new JSONObject().put("ok",true).put("method","WALK_FORWARD_V1").put("global",global).put("regions",regions)
+    .put("candidateStatus",ready?"CHAMPION_ELIGIBLE":"CHALLENGER_ONLY").put("promoted",false)
+    .put("promotionRule","evaluatedRaces>=100 && brierModel<brierMarket; promotion persisted only by PEGASUS model registry")
+    .put("sourceSha256",sha(file));
+ }finally{d.close();}}
+ private JSONObject replayScope(SQLiteDatabase d,String track)throws Exception{
+  String sql="SELECT r.race_date,r.race_uid FROM race r"+(track==null?"":" WHERE r.track_code=?")+" ORDER BY r.race_date,r.race_no";String[] args=track==null?null:new String[]{track};
+  int evaluated=0,top1=0;double bModel=0,bMarket=0;try(Cursor rc=d.rawQuery(sql,args)){while(rc.moveToNext()){
+   String date=rc.getString(0),rid=rc.getString(1);java.util.Map<Integer,Integer> finish=new java.util.HashMap<>();java.util.Map<Integer,Double> winOdds=new java.util.HashMap<>();
+   try(Cursor x=d.rawQuery("SELECT horse_no,finish_rank FROM runner WHERE race_uid=? AND finish_rank IS NOT NULL",new String[]{rid})){while(x.moveToNext())finish.put(x.getInt(0),x.getInt(1));}
+   try(Cursor x=d.rawQuery("SELECT horse_no_1,odds_decimal FROM odds WHERE race_uid=? AND pool_code='WIN' AND horse_no_1 IS NOT NULL AND odds_decimal>0",new String[]{rid})){while(x.moveToNext())winOdds.put(x.getInt(0),x.getDouble(1));}
+   if(finish.size()<3||winOdds.size()<3)continue;double z=0;for(double o:winOdds.values())z+=1.0/o;if(z<=0)continue;
+   int actual=-1;for(java.util.Map.Entry<Integer,Integer> e:finish.entrySet())if(e.getValue()==1){actual=e.getKey();break;}if(actual<0)continue;
+   double best=-1;int predicted=-1;for(java.util.Map.Entry<Integer,Double> e:winOdds.entrySet()){double market=(1.0/e.getValue())/z;double prior=historicalHorsePrior(d,e.getKey(),track,date);double model=.55*prior+.45*market;if(model>best){best=model;predicted=e.getKey();}double y=e.getKey()==actual?1:0;bModel+=(model-y)*(model-y);bMarket+=(market-y)*(market-y);}
+   evaluated++;if(predicted==actual)top1++;
+  }}
+  return new JSONObject().put("evaluatedRaces",evaluated).put("top1HitRate",evaluated==0?JSONObject.NULL:(double)top1/evaluated).put("brierModel",evaluated==0?JSONObject.NULL:bModel/evaluated).put("brierMarket",evaluated==0?JSONObject.NULL:bMarket/evaluated).put("status",evaluated>=100?"VALIDATED":"LOW_SAMPLE");
+ }
+ private double historicalHorsePrior(SQLiteDatabase d,int horseNo,String track,String before)throws Exception{
+  String sql="SELECT COUNT(*),SUM(CASE WHEN u.finish_rank=1 THEN 1 ELSE 0 END),SUM(CASE WHEN u.finish_rank BETWEEN 1 AND 3 THEN 1 ELSE 0 END) FROM runner u JOIN race r ON r.race_uid=u.race_uid WHERE u.horse_no=? AND r.race_date<?"+(track==null?"":" AND r.track_code=?");
+  String[] a=track==null?new String[]{String.valueOf(horseNo),before}:new String[]{String.valueOf(horseNo),before,track};try(Cursor c=d.rawQuery(sql,a)){c.moveToFirst();double n=c.getDouble(0),w=c.getDouble(1),t=c.getDouble(2);return .55*((w+1)/(n+8))+.45*((t+3)/(n+10));}
+ }
  JSONObject priors(String track,String beforeDate,JSONArray horses)throws Exception{JSONObject out=new JSONObject();if(!file.exists())return out;SQLiteDatabase d=SQLiteDatabase.openDatabase(file.getAbsolutePath(),null,SQLiteDatabase.OPEN_READONLY);try{
   for(int i=0;i<horses.length();i++){JSONObject h=horses.optJSONObject(i);if(h==null)continue;String name=h.optString("name","").trim();if(name.isEmpty())continue;
    try(Cursor c=d.rawQuery("SELECT COUNT(*),SUM(CASE WHEN u.finish_rank=1 THEN 1 ELSE 0 END),SUM(CASE WHEN u.finish_rank BETWEEN 1 AND 3 THEN 1 ELSE 0 END) FROM runner u JOIN race r ON r.race_uid=u.race_uid WHERE u.horse_name=? AND r.track_code=? AND r.race_date<?",new String[]{name,track,beforeDate})){if(c.moveToFirst()){double n=c.getDouble(0),win=c.getDouble(1),top3=c.getDouble(2);if(n>0){double wr=(win+1.0)/(n+8.0),tr=(top3+3.0)/(n+10.0);out.put(String.valueOf(h.optInt("number")),new JSONObject().put("samples",(int)n).put("winRateBayes",wr).put("top3RateBayes",tr).put("prior",Math.min(1,.55*wr+.45*tr)));}}}
