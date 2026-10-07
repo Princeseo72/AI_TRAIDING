@@ -23,3 +23,5 @@ assert(!detector.includes('RESULT_ROW_SCRATCH'),'page-global result regex must n
 assert(!detector.includes('DECISION_NUMBER'),'page-global decision regex must not drive exclusion');
 assert(!detector.includes('REPORT_CIRCLED'),'circled-number page-global inference must not drive exclusion');
 console.log('STRICT EXCLUDED HORSE CONTRACT TESTS PASSED');
+
+assert(!app.includes('출전취소/제외마 —'),'excluded runner list must stay hidden from race UI');
