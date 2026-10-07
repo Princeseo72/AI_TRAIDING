@@ -254,3 +254,46 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 - When field refresh removes a scratched runner, its blank odds MUST NOT block T20→T5 or analysis.
 - Regression fixture: 제주 3R, horse 7 explicit cancellation => active=false and no odds row.
 <!-- scratch-hard-boundary full batch -->
+
+
+## 11. 변경 불변 규칙 / Change-Scope Lock (2026-10-07)
+이 절은 이후 모든 엔진/코딩 수정의 상위 작업 규칙이다.
+
+### 11.1 기본 원칙
+1. 요청받은 결함과 직접 관련된 파일·함수만 수정한다.
+2. 무관한 기능, 변수, 함수, UI 흐름, DB 계약은 변경하지 않는다.
+3. 연결부 수정이 불가피하면 기존 함수명/호출계약/입출력/저장형식/사용자 흐름을 유지하고 필요한 필드만 후방호환 방식으로 추가한다.
+4. 기존 기능 삭제·이름변경·의미변경은 별도 명시 요청 없이는 금지한다.
+5. 리팩터링과 기능수정을 같은 배치에 섞지 않는다.
+6. 수정 전후 회귀테스트가 없는 상태에서 기존 동작 유지라고 판정하지 않는다.
+
+### 11.2 변경 기록 의무
+각 배치마다 MD에 다음을 남긴다.
+- 기준 commit SHA
+- 변경 후 commit SHA
+- 변경 목적
+- 변경 파일/함수
+- 변경 전 동작/스펙
+- 변경 후 동작/스펙
+- 의도적으로 유지한 기존 기능
+- DB/API/UI 호환성
+- 실행한 회귀테스트와 결과
+- APK workflow/run ID
+- APK artifact digest 및 최종 파일 SHA-256
+
+### 11.3 이번 학습엔진 v3 허용 범위
+직접 엔진 변경:
+- app/src/main/assets/ml.js : online feature contract 확장
+- app/src/main/assets/analysis.js : 기존 score에 context feature를 후방호환 가산
+- app/src/main/assets/app.js : preRaceContext→feature 연결, 수동 실제결과 학습 UI/호출
+- app/src/main/java/com/kplay/horseracing/StorageBridge.java : 빈 Hist/Regional 상태의 신뢰도 과대표시 방지
+검증/문서:
+- test-learning-runtime.js
+- test-fix-contract.js
+- docs/학습엔진_변경기술서_v3.md
+
+이번 배치에서 위 목록 밖의 기존 경주선택/검빛 parser/배당입력/제외마/저장기록/최종8 산출/Android bridge 계약은 학습엔진 수정 대상으로 보지 않으며 기능 유지 대상이다.
+
+### 11.4 APK Release 원칙
+APK는 위 변경기록 + blocking CI가 성공한 동일 HEAD SHA에서만 배포한다.
+다른 SHA에서 만든 APK를 최신 APK라고 보고하지 않는다.
