@@ -203,3 +203,5 @@ L7 Android package/device: Android10 설치/실행/자가진단/메뉴 터치/�
 금지 문구: '완벽', '100%', '실전검증 완료' (L1~L7 근거 없을 때).
 완료 보고는 표로 `항목 / 테스트 / 근거 / 상태(PASS|FAIL|PENDING)`를 제시한다.
 FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 기록한다.
+
+<!-- release-gate rerun: 2026-10-07 parser identity fix -->
