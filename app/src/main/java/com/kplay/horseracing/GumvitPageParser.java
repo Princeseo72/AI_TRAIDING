@@ -1,6 +1,7 @@
 package com.kplay.horseracing.gumvit;
 
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -39,6 +40,19 @@ final class GumvitPageParser {
 
     static boolean identityMatches(Document doc,String date,String region,int raceNo){
         return date.equals(actualDate(doc)) && raceNo==actualRaceNo(doc) && regionMatches(doc,region);
+    }
+
+    static Element findEntryTable(Document doc){
+        if(doc==null)return null;
+        for(Element table:doc.select("table")){
+            for(Element tr:table.select("tr")){
+                String x=tr.text().replace(" ","").replace("\u00A0","");
+                if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수")){
+                    return table;
+                }
+            }
+        }
+        return null;
     }
 
     static List<String> typeCandidates(String date){
