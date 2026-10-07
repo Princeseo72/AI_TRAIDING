@@ -15,4 +15,21 @@ assert(d.finalCombinations.EXACTA.every(c=>c.key.includes('>')),'exacta directio
 const full=JSON.parse(JSON.stringify(base));full.pools.QUINELLA={T20:[{key:'3-7',odds:11},{key:'3-11',odds:18},{key:'1-3',odds:14}],T5:[{key:'3-7',odds:6.2},{key:'3-11',odds:17},{key:'1-3',odds:15}]};full.pools.EXACTA={T20:[{key:'7>3',odds:24},{key:'3>7',odds:15},{key:'3>11',odds:31}],T5:[{key:'7>3',odds:12},{key:'3>7',odds:13},{key:'3>11',odds:29}]};let r=A.analyzeRace(full);assert(r.ok,'full analysis failed');assert(r.poolResults.QUINELLA.mode==='ACTUAL_POOL','actual quinella not used');assert(r.poolResults.EXACTA.mode==='ACTUAL_POOL','actual exacta not used');
 let small=A.analyzeRace({horseNumbers:[1,2],pools:{WIN:{T20:[{key:'1',odds:2},{key:'2',odds:3}],T5:[{key:'1',odds:2.5},{key:'2',odds:2.8}]}}});assert(!small.ok,'<3 runners accepted');
 let bad=A.analyzeRace({horseNumbers:[1,2,3],pools:{WIN:{T20:[{key:'1',odds:2},{key:'2',odds:3},{key:'3',odds:4}],T5:[{key:'1',odds:2.5},{key:'2',odds:2.8}]}}});assert(!bad.ok,'mismatched WIN accepted');
+
+const leaked=A.analyzeRace({
+  horseNumbers:[1,3,4],
+  pools:{WIN:{
+    T20:[{key:'1',odds:2},{key:'2',odds:3},{key:'3',odds:4},{key:'4',odds:6}],
+    T5:[{key:'1',odds:2.1},{key:'2',odds:2.8},{key:'3',odds:4.2},{key:'4',odds:5.8}]
+  }}
+});
+assert(!leaked.ok,'WIN row outside verified active-runner set must be rejected');
+
+const comboLeak=JSON.parse(JSON.stringify(base));
+comboLeak.pools.QUINELLA={
+  T20:[{key:'1-2',odds:5},{key:'1-3',odds:6}],
+  T5:[{key:'1-2',odds:4.5},{key:'1-3',odds:5.5}]
+};
+const comboLeakResult=A.analyzeRace(comboLeak);
+assert(!comboLeakResult.ok,'optional-pool combination outside verified active-runner set must be rejected');
 console.log('ANALYSIS ENGINE TESTS PASSED');
