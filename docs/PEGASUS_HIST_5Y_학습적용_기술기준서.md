@@ -277,3 +277,38 @@ APK SHA-256
 - 검증 없이 '학습 완료/성능 개선/적중률 향상' 선언
 
 이 문서는 이후 5Y HIST -> PEGASUS 적용 구현의 기준 계약으로 사용한다.
+
+
+## 17. PEGASUS v6.0.0 구현 계약 / 데이터 입력·학습
+배포 목표 applicationId=com.kplay.horseracing.crosspool.v600, versionName=6.0.0.
+
+### 입력
+Collector export 파일 PEGASUS_HIST_V1.sqlite는 Android Storage Access Framework로 사용자가 명시 선택한다.
+PEGASUS는 선택 파일을 자기 private files/pegasus_hist/PEGASUS_HIST_V1.sqlite로 복사한다.
+외부 수집기 private/external-files 경로를 직접 참조하지 않는다.
+설치복사 후 schema_version, SHA-256, race/runner/odds count, track_code, pool_code 검증 실패 시 HIST_INVALID.
+
+### 학습 역할
+Collector V1에 저장된 FINAL odds + finish_rank는 장기 HIST 통계/확률/Ordered Finish 사전정보용이다.
+Collector V1에 존재하지 않는 T20/T5 과거 snapshot을 생성/추정/위조하지 않는다.
+T20->T5 movement 학습은 PEGASUS 실전 snapshot/Closed Loop가 담당한다.
+
+5Y 학습 산출:
+- Global + SEOUL/BUSAN_GYEONGNAM/JEJU/YEONGCHEON 분리
+- 7 pool sample/mean odds/implied mass
+- horse historical sample, Bayesian win/top3 prior
+- race_date < targetDate cutoff 강제
+- outcome rows가 없는 DB는 Candidate/Champion 학습완료 판정 금지
+
+### 실전 적용
+HIST_READY일 때 현재 출전마 horse_name을 point-in-time 조회하여 historicalPrior.horsePriors로 주입한다.
+기존 Fundamental -> Learned -> T20/T5 Market -> Blend -> Calibration -> Ordered Finish -> Final123/Final8 흐름 유지.
+HIST prior는 단독 착순결정 금지.
+
+### 변경 파일
+HistRepository.java 신규: private immutable copy/read-only validation/statistical query.
+HistBridge.java 신규: file picker/train/status/prior JS bridge.
+MainActivity.java: AndroidHist bridge + ACTION_OPEN_DOCUMENT result 전달만 additive.
+app.js: HIST 입력/학습 UI, 상태, point-in-time prior 주입.
+build.gradle/workflow/index.html: v6.0.0 identity.
+기존 Gumvit/Scratch/메뉴1~6/T20/T5/snapshot/result-learning 계약은 변경하지 않는다.
