@@ -341,7 +341,7 @@ public class StorageBridge {
                     .put("champion", champion)
                     .put("dataFreshness", freshness)
                     .put("uncertainty", new JSONObject()
-                            .put("level", regional.optInt("sampleCount", 0) < 20 ? "HIGH" : "MID")
+                            .put("level", regional.optInt("sampleCount", 0) < 20 || "HIST_PENDING".equals(versions.optString("histStatus","HIST_PENDING")) ? "LOW" : "MID")
                             .put("reason", regional.optInt("sampleCount", 0) < 20 ? "지역 실전 표본 부족" : "지역 표본 존재"))
                     .put("durationMs", (System.nanoTime() - start) / 1_000_000.0);
             return out.toString();
