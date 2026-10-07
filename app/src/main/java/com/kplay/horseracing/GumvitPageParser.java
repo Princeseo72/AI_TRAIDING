@@ -88,6 +88,42 @@ final class GumvitPageParser {
         return null;
     }
 
+    static final class Entry {
+        final int number; final String name,record,trainer,jockey,popularity,expert; final boolean entryExcluded;
+        Entry(int number,String name,String record,String trainer,String jockey,String popularity,String expert,boolean entryExcluded){
+            this.number=number;this.name=name;this.record=record;this.trainer=trainer;this.jockey=jockey;this.popularity=popularity;this.expert=expert;this.entryExcluded=entryExcluded;
+        }
+    }
+
+    private static int headerIndex(org.jsoup.select.Elements cells,String label){
+        for(int i=0;i<cells.size();i++)if(cells.get(i).text().replace(" ","").contains(label))return i;return -1;
+    }
+
+    static List<Entry> parseEntries(Document doc){
+        List<Entry> out=new ArrayList<>(); Element target=findEntryTable(doc); if(target==null)return out;
+        Element header=null;
+        for(Element tr:target.select("tr")){
+            String x=tr.text().replace(" ","").replace("\u00A0","");
+            if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수")){header=tr;break;}
+        }
+        if(header==null)return out;
+        org.jsoup.select.Elements hh=header.select("th,td");
+        int ino=headerIndex(hh,"마번"),iname=headerIndex(hh,"마명"),irec=headerIndex(hh,"전적"),itr=headerIndex(hh,"조교사"),ij=headerIndex(hh,"기수");
+        if(ino<0||iname<0||itr<0||ij<0)return out;
+        Set<Integer> seen=new LinkedHashSet<>();
+        for(Element tr:target.select("tr")){
+            if(tr==header)continue; org.jsoup.select.Elements td=tr.select("td");
+            int need=Math.max(Math.max(ino,iname),Math.max(itr,ij)); if(td.size()<=need)continue;
+            String ns=td.get(ino).text().trim(); if(!ns.matches("\\d{1,2}"))continue;
+            int no=Integer.parseInt(ns); if(no<1||no>30||seen.contains(no))continue;
+            String name=td.get(iname).text().trim(); if(name.isEmpty()||"마명".equals(name))continue; seen.add(no);
+            StringBuilder tail=new StringBuilder(); for(int i=Math.max(5,ij+1);i<td.size();i++){String x=td.get(i).text().trim();if(!x.isEmpty()){if(tail.length()>0)tail.append(' ');tail.append(x);}}
+            String pop=""; for(int i=td.size()-1;i>=Math.max(5,ij+1);i--){String x=td.get(i).text().trim();if(x.matches("\\d{1,4}")){pop=x;break;}}
+            out.add(new Entry(no,name,irec>=0&&td.size()>irec?td.get(irec).text().trim():"",td.get(itr).text().trim().replaceAll("\\(\\d+\\)$",""),td.get(ij).text().trim(),pop,tail.toString(),ScratchDetector.isEntryExcluded(tr)));
+        }
+        return out;
+    }
+
     static List<String> typeCandidates(String date){
         Set<String> out=new LinkedHashSet<>();
         try{
