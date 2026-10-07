@@ -67,12 +67,12 @@ jobs:
           APPID=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest application-id "$APK")
           echo "minSdk=$MINSDK applicationId=$APPID"
           test "$MINSDK" -le 29
-          test "$APPID" = "com.kplay.horseracing.crosspool.v311"
+          test "$APPID" = "com.kplay.horseracing.crosspool.v400"
           ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HorseRacingOddsAnalyzer-v3.1.1-Pegasus-KRA-Resilient
+          name: HorseRacingOddsAnalyzer-v4.0.0-Pegasus-ClosedLoop
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
