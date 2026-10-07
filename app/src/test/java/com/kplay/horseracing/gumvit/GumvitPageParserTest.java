@@ -37,4 +37,15 @@ public class GumvitPageParserTest {
         assertFalse(GumvitPageParser.identityMatches(Jsoup.parse(html),"2026-10-03","부산경남",2));
         assertFalse(GumvitPageParser.identityMatches(Jsoup.parse(html),"2026-10-03","제주",3));
     }
+    @Test
+    public void selectsPopularityEntryTableInsteadOfBasicProfileTable() {
+        String html="<html><body>"
+                +"<table><tr><th>마번</th><th>관리</th><th>마명</th><th>산지</th><th>기수명</th><th>조교사(조)</th></tr>"
+                +"<tr><td>1</td><td></td><td>기본표말</td><td>한</td><td>기수A</td><td>조교A</td></tr></table>"
+                +"<table><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th><th>검빛전문위원</th></tr>"
+                +"<tr><td>1</td><td>정상마</td><td>10전 (2/1)</td><td>조교B</td><td>기수B</td><td></td></tr></table>"
+                +"</body></html>";
+        assertNotNull(GumvitPageParser.findEntryTable(Jsoup.parse(html)));
+        assertTrue(GumvitPageParser.findEntryTable(Jsoup.parse(html)).text().contains("정상마"));
+    }
 }
