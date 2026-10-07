@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm');
+function ok(x,m){if(!x)throw Error(m)}
+const storage=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
+const wf=fs.readFileSync('./.github/workflows/android-build.yml','utf8');
+ok(!/Run dual-source live diagnostic\n\s+continue-on-error:\s*true/.test(wf),'AG-001 live diagnostic must block release');
+for(const x of ['runnerRatings(db,horses,region)','activeBlend(db,region)','activeCalibration(db,region)','updateBlendCalibration(db, date, region, snapshot, result)'])ok(storage.includes(x),'missing '+x);
+const sandbox={globalThis:{}};vm.createContext(sandbox);vm.runInContext(fs.readFileSync('./app/src/main/assets/pegasus-engine.js','utf8'),sandbox);
+const E=sandbox.globalThis.PegasusEngine;
+const horses=[1,2,3,4,5].map((n,i)=>({number:n,name:'H'+n,record:`${10+i}전 (2/3)`,jockey:'J'+n,trainer:'T'+n,active:true}));
+const pools={WIN:{T20:[1,2,3,4,5].map((key,i)=>({key,odds:[2.8,4.1,6.2,9.5,14][i]})),T5:[1,2,3,4,5].map((key,i)=>({key,odds:[3.0,3.7,5.9,10.2,13.1][i]}))}};
+const ctx={contextVersion:'ALLGO',ratingState:{horses:{'1':{mu:.5},'2':{mu:.2}}},blendModel:{status:'ACTIVE',a:.4,b:.6},calibrationModel:{status:'ACTIVE',method:'SHRINKAGE-v1',params:{strength:.2}},historicalPrior:{status:'READY'},regionalProfile:{sampleCount:30}};
+const r=E.analyze({horses,pools,preRaceContext:ctx});
+ok(r.ok,'engine failed');ok(r.blend.status==='TRAINED','blend not consumed');ok(r.calibration.status==='CALIBRATED'&&r.calibration.strength===.2,'calibration not consumed');
+ok(r.final123.length===3&&new Set(r.final123.map(x=>x.horseNumber)).size===3,'final123 invalid');
+ok(Object.values(r.finalEight).every(x=>x.length===2),'final8 invalid');
+JSON.stringify(r,(k,v)=>{if(typeof v==='number')ok(Number.isFinite(v),'non-finite '+k);return v});
+console.log('ALL-GO RUNTIME CONTRACT PASSED');
