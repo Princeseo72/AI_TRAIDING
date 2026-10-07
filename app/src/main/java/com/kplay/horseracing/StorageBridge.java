@@ -87,10 +87,14 @@ public class StorageBridge {
                 .put("raceNumber", p.optInt("raceNumber"))
                 .put("analysisVersion", result.optString("analysisVersion"))
                 .put("featureSchemaVersion", result.optString("featureSchemaVersion"))
+                .put("contextVersion", p.optString("contextVersion"))
+                .put("preRaceContext", p.optJSONObject("preRaceContext"))
                 .put("featureVectors", result.optJSONObject("featureVectors"))
-                .put("rolePrediction", result.optJSONArray("rolePrediction"))
-                .put("oddsPrediction", result.optJSONArray("oddsPrediction"))
-                .put("finalCombinations", result.optJSONObject("finalCombinations"));
+                .put("legacyPrediction", new JSONObject()
+                        .put("rolePrediction", result.optJSONArray("rolePrediction"))
+                        .put("oddsPrediction", result.optJSONArray("oddsPrediction"))
+                        .put("finalCombinations", result.optJSONObject("finalCombinations")))
+                .put("pegasusResult", p.optJSONObject("pegasusResult"));
     }
 
     private void saveTrainingShell(SQLiteDatabase db, long raceId, long id, JSONObject result) throws Exception {
