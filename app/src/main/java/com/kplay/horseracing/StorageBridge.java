@@ -952,6 +952,7 @@ public class StorageBridge {
             tv.put("bias_json", trackState.toString()); tv.put("bias_version", "TRACK-v1");
             db.insertWithOnConflict("track_bias_state", null, tv, SQLiteDatabase.CONFLICT_REPLACE);
 
+            JSONObject modelUpdate = updateBlendCalibration(db, date, region, snapshot, result);
             JSONObject drift = recordDriftState(db, date, region);
             JSONObject materialized = materializeNextRaceContext(db, date, region, raceNo);
 
