@@ -17,7 +17,7 @@ for(const fn of ['getPreRaceContext','getRegionalProfile','getVersionContract'])
 for(const key of ['preRaceContext','regionalProfile','contextVersion','dataFreshness'])
   assert(app.includes(key), 'App state/context missing: '+key);
 
-for(const text of ['PEGASUS 사전 브리핑','Hist 상태','지역 프로파일','Champion','데이터 최신'])
+for(const text of ['PEGASUS 사전 브리핑','Hist 상태','지역 프로파일','Champion','데이터 상태'])
   assert(app.includes(text), 'Pre-race briefing UI missing: '+text);
 
 assert(app.includes("HIST_PENDING") || store.includes("HIST_PENDING"), 'Hist missing state must be explicit');
