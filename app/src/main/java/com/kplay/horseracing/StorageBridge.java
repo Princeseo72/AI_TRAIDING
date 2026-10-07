@@ -121,6 +121,198 @@ public class StorageBridge {
         }
     }
 
+    private JSONObject versionContract(SQLiteDatabase db) throws Exception {
+        JSONObject out = new JSONObject()
+                .put("histContractVersion", "HIST-CONTRACT-v2")
+                .put("histSchemaVersion", "HIST-SCHEMA-v2")
+                .put("featureSchemaVersion", "FEATURE-v2")
+                .put("regionalProfileVersion", "REGIONAL-v1")
+                .put("ratingVersion", "RATING-v1")
+                .put("trackBiasVersion", "TRACK-v1")
+                .put("marketVersion", "MARKET-v2")
+                .put("blendVersion", "BLEND-v1")
+                .put("calibrationVersion", "CAL-v1")
+                .put("orderedFinishVersion", "ORDERED-v1");
+        try (Cursor c = db.rawQuery("SELECT hist_contract_version,hist_schema_version,feature_schema_version,last_hist_date,status,updated_at FROM hist_manifest WHERE id=1", null)) {
+            if (c.moveToFirst()) {
+                out.put("histContractVersion", c.getString(0))
+                        .put("histSchemaVersion", c.getString(1))
+                        .put("featureSchemaVersion", c.getString(2))
+                        .put("lastHistDate", c.isNull(3) ? JSONObject.NULL : c.getString(3))
+                        .put("histStatus", c.getString(4))
+                        .put("histUpdatedAt", c.getString(5));
+            } else {
+                out.put("histStatus", "HIST_PENDING");
+            }
+        }
+        return out;
+    }
+
+    @JavascriptInterface
+    public String getVersionContract() {
+        try {
+            SQLiteDatabase db = helper.getReadableDatabase();
+            return new JSONObject().put("ok", true).put("versions", versionContract(db)).toString();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    private JSONObject regionalProfile(SQLiteDatabase db, String targetDate, String region) throws Exception {
+        JSONArray outcomes = new JSONArray();
+        String latest = null;
+        try (Cursor c = db.rawQuery(
+                "SELECT race_date,result_json FROM race_outcomes WHERE region=? AND race_date<? ORDER BY race_date DESC,race_number DESC LIMIT 2000",
+                new String[]{region, targetDate})) {
+            while (c.moveToNext()) {
+                if (latest == null) latest = c.getString(0);
+                outcomes.put(new JSONObject(c.getString(1)));
+            }
+        }
+        int total = outcomes.length();
+        JSONObject all = profileWindow(outcomes, total);
+        JSONObject recent100 = profileWindow(outcomes, Math.min(100, total));
+        JSONObject recent20 = profileWindow(outcomes, Math.min(20, total));
+        return new JSONObject()
+                .put("region", region)
+                .put("sampleCount", total)
+                .put("all", all)
+                .put("recent100", recent100)
+                .put("recent20", recent20)
+                .put("asOfDate", latest == null ? JSONObject.NULL : latest)
+                .put("status", total == 0 ? "NO_LOCAL_OUTCOME_DATA" : (total < 20 ? "LOW_SAMPLE" : "READY"))
+                .put("profileVersion", "REGIONAL-v1");
+    }
+
+    private JSONObject profileWindow(JSONArray outcomes, int limit) throws Exception {
+        int count = Math.min(limit, outcomes.length());
+        int favoriteWins = 0, exactaCount = 0, trifectaCount = 0;
+        double exactaSum = 0, trifectaSum = 0;
+        for (int i = 0; i < count; i++) {
+            JSONObject r = outcomes.optJSONObject(i);
+            if (r == null) continue;
+            JSONArray f = r.optJSONArray("finishers");
+            if (f != null && f.length() > 0) {
+                JSONObject first = f.optJSONObject(0);
+                if (first != null) {
+                    int pop = first.optInt("popularity", first.optInt("popularityRank", 0));
+                    if (pop == 1) favoriteWins++;
+                }
+            }
+            JSONObject p = r.optJSONObject("payouts");
+            if (p != null) {
+                JSONObject e = p.optJSONObject("EXACTA");
+                if (e != null && Double.isFinite(e.optDouble("odds", Double.NaN))) {
+                    exactaSum += e.optDouble("odds"); exactaCount++;
+                }
+                JSONObject t = p.optJSONObject("TRIFECTA");
+                if (t != null && Double.isFinite(t.optDouble("odds", Double.NaN))) {
+                    trifectaSum += t.optDouble("odds"); trifectaCount++;
+                }
+            }
+        }
+        return new JSONObject()
+                .put("count", count)
+                .put("favoriteWinRate", count == 0 ? JSONObject.NULL : (double) favoriteWins / count)
+                .put("meanExactaOdds", exactaCount == 0 ? JSONObject.NULL : exactaSum / exactaCount)
+                .put("meanTrifectaOdds", trifectaCount == 0 ? JSONObject.NULL : trifectaSum / trifectaCount);
+    }
+
+    @JavascriptInterface
+    public String getRegionalProfile(String targetDate, String region) {
+        long start = System.nanoTime();
+        try {
+            SQLiteDatabase db = helper.getReadableDatabase();
+            return new JSONObject().put("ok", true)
+                    .put("profile", regionalProfile(db, targetDate, region))
+                    .put("durationMs", (System.nanoTime() - start) / 1_000_000.0).toString();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    private JSONObject activeChampion(SQLiteDatabase db, String region) throws Exception {
+        try (Cursor c = db.rawQuery(
+                "SELECT model_version,metrics_json,feature_schema_version,created_at FROM champion_registry WHERE region IN (?, 'GLOBAL') AND alias='CHAMPION' ORDER BY CASE WHEN region=? THEN 0 ELSE 1 END,id DESC LIMIT 1",
+                new String[]{region, region})) {
+            if (!c.moveToFirst()) return new JSONObject().put("modelVersion", "BASELINE").put("status", "FALLBACK");
+            return new JSONObject()
+                    .put("modelVersion", c.getString(0))
+                    .put("metrics", new JSONObject(c.getString(1)))
+                    .put("featureSchemaVersion", c.getString(2))
+                    .put("createdAt", c.getString(3))
+                    .put("status", "ACTIVE");
+        }
+    }
+
+    private JSONObject currentTrackBias(SQLiteDatabase db, String date, String region) throws Exception {
+        try (Cursor c = db.rawQuery(
+                "SELECT sample_count,bias_json,bias_version,updated_at FROM track_bias_state WHERE race_date=? AND region=? LIMIT 1",
+                new String[]{date, region})) {
+            if (!c.moveToFirst()) return new JSONObject()
+                    .put("sampleCount", 0).put("bias", new JSONObject())
+                    .put("biasVersion", "TRACK-v1").put("status", "NO_SAME_DAY_SAMPLE");
+            return new JSONObject()
+                    .put("sampleCount", c.getInt(0))
+                    .put("bias", new JSONObject(c.getString(1)))
+                    .put("biasVersion", c.getString(2))
+                    .put("updatedAt", c.getString(3))
+                    .put("status", c.getInt(0) < 3 ? "LOW_SAMPLE" : "READY");
+        }
+    }
+
+    @JavascriptInterface
+    public String getPreRaceContext(String date, String region, int raceNo, String horsesJson) {
+        long start = System.nanoTime();
+        try {
+            SQLiteDatabase db = helper.getReadableDatabase();
+            JSONObject versions = versionContract(db);
+            JSONObject regional = regionalProfile(db, date, region);
+            JSONObject champion = activeChampion(db, region);
+            JSONObject track = currentTrackBias(db, date, region);
+            JSONArray horses;
+            try { horses = new JSONArray(horsesJson == null ? "[]" : horsesJson); }
+            catch (Exception ignored) { horses = new JSONArray(); }
+
+            int ratingRows = count(db, "SELECT COUNT(*) FROM rating_state WHERE region IN (?, 'GLOBAL')", new String[]{region});
+            JSONObject freshness = new JSONObject()
+                    .put("hist", versions.opt("lastHistDate"))
+                    .put("regional", regional.opt("asOfDate"))
+                    .put("ratingRows", ratingRows)
+                    .put("trackSamples", track.optInt("sampleCount", 0))
+                    .put("histStatus", versions.optString("histStatus", "HIST_PENDING"));
+
+            String contextVersion = "CTX-" + date.replace("-", "") + "-" +
+                    region.replace("부산경남", "BUSAN").replace("서울", "SEOUL").replace("제주", "JEJU") +
+                    "-R" + raceNo + "-v1";
+
+            JSONObject out = new JSONObject()
+                    .put("ok", true)
+                    .put("contextVersion", contextVersion)
+                    .put("raceDate", date).put("region", region).put("raceNo", raceNo)
+                    .put("runnerCount", horses.length())
+                    .put("versions", versions)
+                    .put("regionalProfile", regional)
+                    .put("historicalPrior", new JSONObject()
+                            .put("status", versions.optString("histStatus", "HIST_PENDING"))
+                            .put("similarRaceCount", 0)
+                            .put("note", "5년 Hist 인덱스 연결 전에는 로컬 검증결과만 사용"))
+                    .put("ratingState", new JSONObject()
+                            .put("status", ratingRows == 0 ? "RATING_PENDING" : "AVAILABLE")
+                            .put("rows", ratingRows))
+                    .put("trackBias", track)
+                    .put("champion", champion)
+                    .put("dataFreshness", freshness)
+                    .put("uncertainty", new JSONObject()
+                            .put("level", regional.optInt("sampleCount", 0) < 20 ? "HIGH" : "MID")
+                            .put("reason", regional.optInt("sampleCount", 0) < 20 ? "지역 실전 표본 부족" : "지역 표본 존재"))
+                    .put("durationMs", (System.nanoTime() - start) / 1_000_000.0);
+            return out.toString();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
     @JavascriptInterface
     public String getActiveModel(String region) {
         try {
