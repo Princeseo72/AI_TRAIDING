@@ -186,10 +186,10 @@ public class GumvitBridge {
         }
         if(doc==null)throw new Exception("검빛 경주 식별 실패: "+date+" "+region+" "+raceNo+"R ["+attempts+"]");
 
-        Set<Integer> resultScratches=new HashSet<>();
-        try{resultScratches.addAll(resultScratchNumbers(date,region,raceNo));}catch(Exception ignored){}
+        // Pre-race field loading must never query result_detail: it causes duplicate Gumvit
+        // requests and can leak post-race information during historical Replay.
         Set<Integer> kraScratches=kraChangeScratches(date,region,raceNo);
-        resultScratches.addAll(kraScratches);
+        Set<Integer> resultScratches=new HashSet<>(kraScratches);
         Element target=GumvitPageParser.findEntryTable(doc);
         if(target==null)throw new Exception("검빛 출전마 인기도 표 미검출");
         Element header=null;for(Element tr:target.select("tr")){String x=tr.text().replace(" ","").replace("\u00A0","");if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수")){header=tr;break;}}
@@ -240,6 +240,41 @@ public class GumvitBridge {
         String body=doc.body()==null?doc.text():doc.body().text();JSONObject payouts=new JSONObject();Double win=payoutOdd(body,"단승식"),quin=payoutOdd(body,"복승식"),exact=payoutOdd(body,"쌍승식"),trio=payoutOdd(body,"삼복승식"),tri=payoutOdd(body,"삼쌍승식");
         if(win!=null)payouts.put("WIN",new JSONObject().put("key",String.valueOf(first)).put("odds",win));if(second>0&&quin!=null)payouts.put("QUINELLA",new JSONObject().put("key",sortedKey(first,second)).put("odds",quin));if(second>0&&exact!=null)payouts.put("EXACTA",new JSONObject().put("key",first+">"+second).put("odds",exact));if(third>0&&trio!=null)payouts.put("TRIO",new JSONObject().put("key",sortedKey(first,second,third)).put("odds",trio));if(third>0&&tri!=null)payouts.put("TRIFECTA",new JSONObject().put("key",first+">"+second+">"+third).put("odds",tri));
         return new JSONObject().put("ok",true).put("verified",true).put("date",pd).put("raceNo",pr).put("region",region).put("source",url).put("finishers",finishers).put("excludedHorses",excluded).put("payouts",payouts);
+    }
+
+    @JavascriptInterface public String selfDiagnose(){
+        long started=System.currentTimeMillis();
+        JSONObject out=new JSONObject();
+        try{
+            String date="2026-10-03", region="제주"; int raceNo=2;
+            String url="https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=2&type=6";
+            Document d=getOnce(url,7000);
+            boolean identity=GumvitPageParser.identityMatches(d,date,region,raceNo);
+            Element table=GumvitPageParser.findEntryTable(d);
+            int runners=0;
+            if(table!=null){
+                for(Element tr:table.select("tr")){
+                    Elements td=tr.select("td");
+                    if(!td.isEmpty() && td.get(0).text().trim().matches("\\d{1,2}"))runners++;
+                }
+            }
+            boolean parser=identity && table!=null && runners>=2;
+            out.put("gumvitHttp",true).put("gumvitParser",parser).put("gumvitRunnerRows",runners)
+               .put("canary","2026-10-03|제주|2R").put("duplicateResultLookup",false)
+               .put("preRaceSourcePolicy","CHULMA_DETAIL_ONCE + KRA_CHANGE; RESULT_DETAIL_POST_RACE_ONLY");
+            boolean modules=true;
+            try{
+                Class.forName("com.kplay.horseracing.gumvit.GumvitPageParser");
+                Class.forName("com.kplay.horseracing.gumvit.KraRaceParser");
+                Class.forName("com.kplay.horseracing.gumvit.ScratchDetector");
+            }catch(Throwable x){modules=false;}
+            out.put("modules",modules).put("ok",parser&&modules);
+            if(!parser)out.put("error","검빛 HTTP는 응답했지만 경주 identity/출전표 parser 진단 실패");
+        }catch(Exception e){
+            try{out.put("ok",false).put("gumvitHttp",false).put("gumvitParser",false).put("error",e.getMessage());}catch(Exception ignored){}
+        }
+        try{out.put("durationMs",System.currentTimeMillis()-started);}catch(Exception ignored){}
+        return out.toString();
     }
 
     @JavascriptInterface public String fetchRace(String date,String region,int raceNo){try{return fetchResilient(date,region,raceNo).toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("verified",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
