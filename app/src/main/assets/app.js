@@ -101,9 +101,9 @@ function contextSignalsForAnalysis(){
     const r=ratings[String(h.number)]||ratings[h.number]||{};
     const norm=x=>Number.isFinite(+x)?Math.max(0,Math.min(1,(+x+3)/6)):0;
     by[h.number]={
-      horseRatingPrior:norm(r.horseMu??r.mu),
-      jockeyRatingPrior:norm(r.jockeyMu),
-      trainerRatingPrior:norm(r.trainerMu),
+      horseRatingPrior:norm(r.horse?.mu),
+      jockeyRatingPrior:norm(r.jockey?.mu),
+      trainerRatingPrior:norm(r.trainer?.mu),
       regionalPrior:Number(rp.favoriteWinRate??rp.recent20?.favoriteWinRate)||0,
       historicalPrior:Number(hp.horsePriors?.[String(h.number)]??hp.horsePriors?.[h.number])||0
     };
@@ -222,6 +222,25 @@ function trainFromResult(){
     refreshMlStatus();
   }catch(e){S.lastTrainingMs=performance.now()-started;S.mlEvent={error:String(e.message||e),promotionReason:'ML 실패 - 기본 분석 유지'}}
 }
+
+function forceLearnFromManualOutcome(){
+  if(!S.savedId||!S.result)return toast('먼저 분석 결과를 저장하세요.');
+  const raw=prompt('실제 1·2·3착 마번을 쉼표로 입력하세요. 예: 4,1,10','');
+  if(raw==null)return;
+  const top=raw.split(/[>,\/\s]+/).map(Number).filter(Number.isFinite);
+  if(top.length!==3||new Set(top).size!==3)return toast('서로 다른 실제 1·2·3착 마번 3개가 필요합니다.');
+  const active=new Set(S.horses.map(h=>+h.number));if(top.some(n=>!active.has(n)))return toast('현재 유효 출전마가 아닌 마번이 포함되었습니다.');
+  if(!confirm('실제 확정착순 '+top.join(' → ')+' 을 결과로 저장하고 1회 학습합니다. 계속할까요?'))return;
+  try{
+    const finishers=top.map((number,i)=>({rank:i+1,number,name:(S.horses.find(h=>+h.number===number)||{}).name||''}));
+    const d={ok:true,verified:true,manualVerified:true,source:'MANUAL_CONFIRMED_OUTCOME',finishers,payouts:{}};
+    const a=JSON.parse(AndroidStore.attachRaceResult(+S.savedId,JSON.stringify(d)));if(!a.ok)throw new Error(a.error||'실제결과 저장 실패');
+    S.postRaceResult=d;trainFromResult();
+    const loop=JSON.parse(AndroidStore.applyClosedLoopUpdate(+S.savedId));S.closedLoop=loop.ok?loop:{ok:false,error:loop.error||'폐쇄루프 실패'};
+    toast(loop.ok?'강제 결과학습 완료 · 다음 경주 Context 갱신':'결과학습 일부 실패');render();
+  }catch(e){toast('강제 결과학습 실패: '+(e.message||e))}
+}
+
 function fetchRaceResult(silent=false){
   if(!S.savedId){if(!silent)toast('먼저 분석을 저장하거나 저장 기록을 불러오세요.');return false}
   try{
@@ -264,7 +283,7 @@ function probabilityTableView(){
  const ids=Object.keys(p.ordered?.p1||{}).map(Number).sort((a,b)=>(p.ordered.p1[b]||0)-(p.ordered.p1[a]||0)).slice(0,5);
  return `<section class="card"><h2>TOP5 확률</h2><div class="tableWrap"><table class="compact"><thead><tr><th>마번</th><th>P1</th><th>P2</th><th>P3</th><th>시장P</th></tr></thead><tbody>${ids.map(h=>`<tr><td>${h}번</td><td>${pegProb(p.ordered.p1[h])}</td><td>${pegProb(p.ordered.p2[h])}</td><td>${pegProb(p.ordered.p3[h])}</td><td>${pegProb(p.market.p1[h])}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
-function resultView(){const r=S.result,p=S.pegasusResult;if(!r||!p?.ok)return '<section class="card">분석 결과가 없습니다.</section>';const vv=S.postVerify?.verified?`<span class="good">✓ 검빛 재대조 통과</span>`:`<span class="bad">저장 전 검빛 경주 대조검증 필요</span>`,saved=S.savedId?`<span class="good">저장됨 #${S.savedId}</span>`:'';return `${pegasusFinalView()}${pegasusEightView()}${engineCompareView()}${probabilityTableView()}${preRaceBriefing()}${evidenceView()}${mlPanel()}<section class="card"><div class="row spread"><b>PEGASUS ${esc(p.engineVersion)} · ${(S.lastAnalysisMs||0).toFixed(1)}ms</b><div>${vv} ${saved}</div></div><div class="row"><button id="verifyGumvit" class="secondary">검빛 경주 대조검증</button>${S.savedId?'<button id="fetchRaceResult" class="primary">경주결과 대조·학습</button>':''}</div></section>${outcomeView()}<div class="row right"><button id="recalc" class="secondary">배당 수정</button>${S.savedId?'':`<button id="approve" class="primary" ${S.postVerify?.verified?'':'disabled'}>최종 승인 및 저장</button>`}</div>`}function records(){try{return window.AndroidStore?JSON.parse(AndroidStore.listAnalyses()):[]}catch(e){return []}}
+function resultView(){const r=S.result,p=S.pegasusResult;if(!r||!p?.ok)return '<section class="card">분석 결과가 없습니다.</section>';const vv=S.postVerify?.verified?`<span class="good">✓ 검빛 재대조 통과</span>`:`<span class="bad">저장 전 검빛 경주 대조검증 필요</span>`,saved=S.savedId?`<span class="good">저장됨 #${S.savedId}</span>`:'';return `${pegasusFinalView()}${pegasusEightView()}${engineCompareView()}${probabilityTableView()}${preRaceBriefing()}${evidenceView()}${mlPanel()}<section class="card"><div class="row spread"><b>PEGASUS ${esc(p.engineVersion)} · ${(S.lastAnalysisMs||0).toFixed(1)}ms</b><div>${vv} ${saved}</div></div><div class="row"><button id="verifyGumvit" class="secondary">검빛 경주 대조검증</button>${S.savedId?'<button id="fetchRaceResult" class="primary">경주결과 대조·학습</button><button id="forceLearn" class="secondary">실제착순 직접확정·학습</button>':''}</div></section>${outcomeView()}<div class="row right"><button id="recalc" class="secondary">배당 수정</button>${S.savedId?'':`<button id="approve" class="primary" ${S.postVerify?.verified?'':'disabled'}>최종 승인 및 저장</button>`}</div>`}function records(){try{return window.AndroidStore?JSON.parse(AndroidStore.listAnalyses()):[]}catch(e){return []}}
 function loadAnalysis(id,showToast=true){try{const r=JSON.parse(AndroidStore.getAnalysis(+id));if(!r.ok)throw new Error(r.error);const p=r.payload;clearRuntime();S.analysisEpoch++;S.race={date:p.raceDate,region:p.region,number:+p.raceNumber};requireRunnerGuard();S.excludedHorses=p.excludedHorses||[];S.horses=guardedActiveHorses(p.horses||[],S.excludedHorses);S.pools=RunnerGuard.sanitizePools(p.pools||{},S.horses,S.excludedHorses);assertNoRunnerLeak();S.result=p.result||null;S.pegasusResult=p.pegasusResult||p.predictionSnapshot?.pegasusResult||null;S.preRaceContext=p.preRaceContext||p.predictionSnapshot?.preRaceContext||S.preRaceContext;S.gumvit={loading:false,source:'저장 기록',error:'',verified:true};S.postVerify={verified:true,source:'저장 시 검증 완료'};S.postRaceResult=p.postRaceResult||null;S.savedId=+r.id;S.lastLoadMs=+r.loadMs||0;S.dirty=false;S.step=4;refreshMlStatus();if(showToast)toast(`빠르게 불러오기 ${S.lastLoadMs.toFixed(1)}ms`);render();return true}catch(e){toast('불러오기 실패: '+e.message);return false}}
 function loadAndFetchResult(id){if(loadAnalysis(id,false))fetchRaceResult(false)}
 function historyView(){if(!S.mlStatus)refreshMlStatus();const rows=records();return `${mlPanel()}<section class="card"><h2>저장 기록</h2><div class="tableWrap"><table><thead><tr><th>날짜</th><th>지역</th><th>경주</th><th>축마</th><th>유입마</th><th>경주후</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.raceDate)}</td><td>${esc(x.region)}</td><td>${x.raceNumber}R</td><td>${x.marketCenter}번</td><td>${x.lateMoney}번</td><td>${x.hasOutcome?'<span class="good">결과/학습</span>':'<span class="sub">결과대기</span>'}</td><td><div class="row"><button class="secondary loadAnalysis" data-id="${x.id}">빠르게 불러오기</button><button class="primary fetchOutcome" data-id="${x.id}">경주결과 대조</button></div></td></tr>`).join('')||'<tr><td colspan="7">저장 기록 없음</td></tr>'}</tbody></table></div></section>`}
