@@ -244,3 +244,13 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 
 - Parser compatibility: no CSS :scope dependency; resolve owning table by DOM ancestry for bundled jsoup compatibility.
 <!-- jsoup-compatible full batch -->
+
+
+## FIX-007 Same-day scratch is a hard boundary
+- Runner list = public entry table MINUS explicit public race-change/말취소 numbers.
+- Gumvit public horse_weight_news 출전표 변경/말취소 is a mandatory supplemental source.
+- KRA change bulletin is additional evidence, not the only same-day scratch source.
+- A scratched runner MUST disappear from WIN T20/T5 rows, optional combinations, Final123, Final8, save snapshot, and ML features.
+- When field refresh removes a scratched runner, its blank odds MUST NOT block T20→T5 or analysis.
+- Regression fixture: 제주 3R, horse 7 explicit cancellation => active=false and no odds row.
+<!-- scratch-hard-boundary full batch -->
