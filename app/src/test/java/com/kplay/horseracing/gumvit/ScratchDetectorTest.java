@@ -54,4 +54,23 @@ public class ScratchDetectorTest {
         assertTrue(numbers.contains(3));
         assertTrue(numbers.contains(9));
     }
+    @Test
+    public void jejuOct3Race2OnlyCurrentExplicitScratchIsExcluded() {
+        String html = "<html><body>"
+                + "<table>"
+                + "<tr><th>순위</th><th>마번</th><th>마명</th></tr>"
+                + "<tr><td>취</td><td>2</td><td>태흥산성</td></tr>"
+                + "<tr><td>5</td><td>9</td><td>천년여왕</td></tr>"
+                + "<tr><td>7</td><td>10</td><td>레드크라운</td></tr>"
+                + "</table>"
+                + "<div>과거 기록: ⑨천년여왕 관련 과거 경주에서 다른 말이 출전제외 처리됨.</div>"
+                + "<div>과거 기록: ⑩레드크라운 관련 과거 기록 2번 말 출전제외 사례.</div>"
+                + "</body></html>";
+        Set<Integer> numbers = ScratchDetector.resultScratchNumbers(Jsoup.parse(html));
+        assertEquals("현재 결과표의 명시적 취소마만 제외해야 함", 1, numbers.size());
+        assertTrue(numbers.contains(2));
+        assertFalse(numbers.contains(9));
+        assertFalse(numbers.contains(10));
+    }
+
 }
