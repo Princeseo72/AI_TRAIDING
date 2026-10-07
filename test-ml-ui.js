@@ -8,3 +8,5 @@ assert(app.includes('finalCombinations'),'final combinations UI missing');
 assert(app.includes('weightDelta'),'weight delta visual missing');
 for(const c of ['predictionGrid','final8','deltaRow','metricStrip','mlMetrics','metricBlock'])assert(css.includes(`.${c}`),`${c} style missing`);
 console.log('ML UI CONTRACT TESTS PASSED');
+
+assert(/function historyView\(\)[\s\S]*mlPanel\(\)/.test(app),'history screen ML panel missing');
