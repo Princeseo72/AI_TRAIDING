@@ -219,3 +219,5 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 - AG-008: Training-serving parity는 offline fixture와 Android/JS runtime의 Q/LMI/rating/regional/blend/calibrated P1 수치 비교.
 - AG-009: Golden Race regression, DB integration/reload, immutable snapshot hash, duplicate learning, actual leakage를 blocking gate로 실행.
 - AG-010: L7 실제 Android device/emulator 메뉴 터치/재시작 복원 검증 전 DEVICE_PASS 금지.
+
+<!-- ALL-GO batch integration gate -->
