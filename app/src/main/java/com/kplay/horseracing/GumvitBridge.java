@@ -175,7 +175,7 @@ public class GumvitBridge {
                 Document d=getPrimary(candidate);
                 String pd=GumvitPageParser.actualDate(d); int pr=GumvitPageParser.actualRaceNo(d);
                 if(GumvitPageParser.identityMatches(d,date,region,raceNo)){
-                    url=candidate; doc=d; parsedDate=pd; parsedRace=pr; break;
+                    url=candidate; doc=d; parsedDate=GumvitPageParser.resolvedDate(d,date); parsedRace=GumvitPageParser.resolvedRaceNo(d,raceNo); break;
                 }
                 if(attempts.length()>0)attempts.append(" | ");
                 attempts.append("type=").append(type).append(":").append(pd).append("/").append(pr);
@@ -209,7 +209,12 @@ public class GumvitBridge {
             String pop="";for(int i=td.size()-1;i>=5;i--){String x=td.get(i).text().trim();if(x.matches("\\d{1,4}")){pop=x;break;}}h.put("popularity",pop);
             if(active)horses.put(h);else excluded.put(h);
         }
-        if(horses.length()==0)throw new Exception("유효 출전마 없음");
+        if(horses.length()==0){
+            String title=doc.title()==null?"":doc.title();
+            String body=doc.body()==null?doc.text():doc.body().text();
+            String state=body.contains("이용권한이 없습니다")?"RESPONSE_RESTRICTED":"DOM_CHANGED_OR_EMPTY";
+            throw new Exception("검빛 출전마 파싱 실패 ["+state+"] title="+title+" tables="+doc.select("table").size()+" url="+doc.location());
+        }
         JSONObject out=new JSONObject().put("ok",true).put("verified",true).put("source",url).put("requestedDate",date).put("actualDate",parsedDate)
                 .put("requestedRaceNo",raceNo).put("actualRaceNo",parsedRace).put("region",region).put("activeCount",horses.length()).put("excludedCount",excluded.length())
                 .put("supplementalSource","KRA_THIS_WEEK_CHANGE").put("horses",horses).put("excludedHorses",excluded);
