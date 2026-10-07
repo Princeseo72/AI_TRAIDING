@@ -28,7 +28,7 @@ function loadPreRaceContext(){
     S.preRaceContext=c;S.regionalProfile=c.regionalProfile||null;S.contextVersion=c.contextVersion||null;S.dataFreshness=c.dataFreshness||null;
     return c;
   }catch(e){
-    S.preRaceContext={ok:false,error:String(e.message||e),historicalPrior:{status:'HIST_PENDING'},regionalProfile:{status:'UNAVAILABLE',sampleCount:0}};
+    S.preRaceContext={ok:false,error:String(e.message||e),historicalPrior:{status:'HIST_PENDING'},regionalProfile:{status:'UNAVAILABLE',sampleCount:0},uncertainty:{level:'LOW',reason:'Context 없음'}};
     return S.preRaceContext;
   }
 }
@@ -94,12 +94,31 @@ function poolStatus(pool){const a=S.pools[pool];if(!a||!a.T20.length)return 'INS
 function t5View(){return `<section class="card"><h2>5분 전 배당</h2><p class="sub">5분 단계 진입 시 출전취소/제외를 다시 확인합니다. 입력 수정 시 기존 분석은 폐기됩니다.</p>${winTable('T5')}</section>${OPTIONAL.map(p=>optionalTable(p,'T5')).join('')}<section class="card"><h3>승식 상태</h3>${OPTIONAL.map(p=>`<div>${POOL_LABELS[p]}: <b class="${poolStatus(p)==='READY'?'good':'sub'}">${poolStatus(p)}</b></div>`).join('')}</section><div class="row right"><button id="analyze" class="primary" ${winValid('T5')?'':'disabled'}>분석 재실행</button></div>`}
 function processView(){return `<section class="card"><h2>연산 처리</h2><div class="progress"><i id="bar"></i></div><div id="logs"></div></section>`}
 function activeModelForAnalysis(){try{if(!window.AndroidStore||!window.RacingML)return null;const x=JSON.parse(AndroidStore.getActiveModel(S.race.region));if(!x.ok)return null;const g=x.global||RacingML.createBaselineModel('GLOBAL'),r=x.regional&&x.regional!==null?x.regional:null;return RacingML.composeModel(g,r)}catch(e){return null}}
+function contextSignalsForAnalysis(){
+  const c=S.preRaceContext||{},ratings=c.ratingState?.horses||{},rp=c.regionalProfile||{},hp=c.historicalPrior||{};
+  const by={};
+  S.horses.forEach(h=>{
+    const r=ratings[String(h.number)]||ratings[h.number]||{};
+    const norm=x=>Number.isFinite(+x)?Math.max(0,Math.min(1,(+x+3)/6)):0;
+    by[h.number]={
+      horseRatingPrior:norm(r.horseMu??r.mu),
+      jockeyRatingPrior:norm(r.jockeyMu),
+      trainerRatingPrior:norm(r.trainerMu),
+      regionalPrior:Number(rp.favoriteWinRate??rp.recent20?.favoriteWinRate)||0,
+      historicalPrior:Number(hp.horsePriors?.[String(h.number)]??hp.horsePriors?.[h.number])||0
+    };
+  });
+  return by;
+}
+function fundamentalPriorsForAnalysis(){
+  const out={};S.horses.forEach(h=>{out[h.number]={recordPrior:0,jockeyPrior:0,trainerPrior:0}});return out;
+}
 function buildInput(){
   const g=requireRunnerGuard(),safe=g.sanitizePools(S.pools,S.horses,S.excludedHorses),guard=g.validateNoExcludedLeak(safe,S.horses,S.excludedHorses);
   if(!guard.ok)throw new Error(`${guard.error}: ${guard.pool} ${guard.snapshot} ${guard.key}`);
   const pools={WIN:{T20:safe.WIN.T20.map(x=>({...x,odds:+x.odds})),T5:safe.WIN.T5.map(x=>({...x,odds:+x.odds}))}};
   OPTIONAL.forEach(p=>{const a=safe[p];if(a&&a.T20.length&&RacingAnalysis.validateEntries(a.T20,p).ok&&RacingAnalysis.validateEntries(a.T5,p).ok)pools[p]={T20:a.T20.map(x=>({key:x.key,odds:+x.odds})),T5:a.T5.map((x,i)=>({key:a.T20[i]?.key||x.key,odds:+x.odds}))}});
-  return {horseNumbers:S.horses.map(h=>h.number),popularity:S.horses.map(h=>Number(h.popularity)||null),pools,learningModel:activeModelForAnalysis()}
+  return {horseNumbers:S.horses.map(h=>h.number),popularity:S.horses.map(h=>Number(h.popularity)||null),pools,learningModel:activeModelForAnalysis(),contextSignals:contextSignalsForAnalysis(),fundamentalPriors:fundamentalPriorsForAnalysis()}
 }
 function buildPegasusInput(){
   const b=buildInput();
