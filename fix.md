@@ -205,3 +205,17 @@ L7 Android package/device: Android10 설치/실행/자가진단/메뉴 터치/�
 FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 기록한다.
 
 <!-- release-gate rerun: 2026-10-07 parser identity fix -->
+
+
+## 10. ALL-GO 감사에서 추가 확인된 차단항목 (2026-10-07)
+아래 항목은 구현 문자열 존재만으로 PASS 금지. 실제 runtime/DB/replay 근거가 있어야 한다.
+- AG-001: dual-source live diagnostic의 continue-on-error 제거. 실패 시 APK build 차단.
+- AG-002: 5년 Hist 원천/인덱스가 없으면 Historical Engine READY 금지. 실제 Hist ingestion + manifest + point-in-time retrieval 필요.
+- AG-003: getPreRaceContext는 rating row count가 아니라 출전마별 horse/jockey/trainer 상태를 실제 반환.
+- AG-004: blend_models/calibration_models를 context에 로드하고 PEGASUS engine이 실제 사용.
+- AG-005: post-race closed loop에 calibration/blend candidate update와 champion/challenger guardrail 포함.
+- AG-006: Track Bias는 gate/pace/section feature 없으면 READY 금지. 데이터 존재 시에만 실제 bias 계산.
+- AG-007: Historical Replay은 서울/부경/제주 실제 fixture + T20/T5 + hidden outcome으로 분석 전 결과접근 차단 검증.
+- AG-008: Training-serving parity는 offline fixture와 Android/JS runtime의 Q/LMI/rating/regional/blend/calibrated P1 수치 비교.
+- AG-009: Golden Race regression, DB integration/reload, immutable snapshot hash, duplicate learning, actual leakage를 blocking gate로 실행.
+- AG-010: L7 실제 Android device/emulator 메뉴 터치/재시작 복원 검증 전 DEVICE_PASS 금지.
