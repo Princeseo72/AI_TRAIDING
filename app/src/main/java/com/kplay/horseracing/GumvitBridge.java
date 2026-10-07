@@ -13,17 +13,47 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.Map;
 
 public class GumvitBridge {
     private static final Pattern DATE_PATTERN=Pattern.compile("(20\\d{2})[-./년\\s]+(\\d{1,2})[-./월\\s]+(\\d{1,2})");
     private static final Pattern RACE_PATTERN=Pattern.compile("(?:^|\\s)(\\d{1,2})경주(?:\\s|$)");
+    private static final long RACE_CACHE_TTL_MS = 30_000L;
+    private static final long KRA_CACHE_TTL_MS = 60_000L;
+    private static final Map<String, CacheEntry> RACE_CACHE = new HashMap<>();
+    private static final Map<String, KraScratchCache> KRA_SCRATCH_CACHE = new HashMap<>();
+
+    private static final class CacheEntry {
+        final long at; final JSONObject value;
+        CacheEntry(long at, JSONObject value){this.at=at;this.value=value;}
+    }
+    private static final class KraScratchCache {
+        final long at; final Set<Integer> numbers;
+        KraScratchCache(long at, Set<Integer> numbers){this.at=at;this.numbers=numbers;}
+    }
 
     private static String code(String region){if("부산경남".equals(region)||"부산".equals(region))return "B";if("제주".equals(region))return "J";return "S";}
     private static String typeCode(String date,String region){if(!"서울".equals(region))return "5";try{return LocalDate.parse(date).getDayOfWeek()==DayOfWeek.SUNDAY?"7":"6";}catch(Exception e){return "6";}}
     private static String normalizeDate(String y,String m,String d){return String.format("%s-%02d-%02d",y,Integer.parseInt(m),Integer.parseInt(d));}
     private static String actualDate(Document doc){Matcher m=DATE_PATTERN.matcher(doc.body()==null?doc.text():doc.body().text());return m.find()?normalizeDate(m.group(1),m.group(2),m.group(3)):"";}
     private static int actualRaceNo(Document doc){Matcher m=RACE_PATTERN.matcher(doc.body()==null?doc.text():doc.body().text());return m.find()?Integer.parseInt(m.group(1)):-1;}
-    private static Document get(String url)throws Exception{return Jsoup.connect(url).userAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36").referrer("https://www.gumvit.com/statv40/").timeout(15000).get();}
+    private static Document getOnce(String url, int timeoutMs)throws Exception{
+        return Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36")
+                .referrer(url.contains("race.kra.co.kr")?"https://race.kra.co.kr/":"https://www.gumvit.com/statv40/")
+                .timeout(timeoutMs).get();
+    }
+    private static Document getPrimary(String url)throws Exception{
+        Exception last=null;
+        for(int i=0;i<2;i++){
+            try{return getOnce(url, 5000);}catch(Exception e){last=e;}
+        }
+        throw last==null?new Exception("네트워크 조회 실패"):last;
+    }
+    private static Document getSupplement(String url)throws Exception{
+        return getOnce(url, 4500);
+    }
     private static int indexOfHeader(Elements cells,String label){for(int i=0;i<cells.size();i++)if(cells.get(i).text().replace(" ","").contains(label))return i;return -1;}
 
     private static boolean exactScratchStatus(String s){
@@ -42,20 +72,57 @@ public class GumvitBridge {
         return null;
     }
 
+
+    private static String cacheKey(String date,String region,int raceNo){
+        return date+"|"+region+"|"+raceNo;
+    }
+
+    private Set<Integer> kraChangeScratches(String date,String region,int raceNo){
+        String key=cacheKey(date,region,raceNo);
+        long now=System.currentTimeMillis();
+        synchronized(KRA_SCRATCH_CACHE){
+            KraScratchCache c=KRA_SCRATCH_CACHE.get(key);
+            if(c!=null && now-c.at<=KRA_CACHE_TTL_MS)return new HashSet<>(c.numbers);
+        }
+        Set<Integer> out=new HashSet<>();
+        try{
+            String url="https://race.kra.co.kr/thisweekrace/ThisWeekChulmapyoChange.do";
+            Document doc=getSupplement(url);
+            out.addAll(ScratchDetector.changeScratchNumbers(doc,date,region,raceNo));
+            synchronized(KRA_SCRATCH_CACHE){
+                KRA_SCRATCH_CACHE.put(key,new KraScratchCache(now,new HashSet<>(out)));
+            }
+        }catch(Exception ignored){
+            synchronized(KRA_SCRATCH_CACHE){
+                KraScratchCache c=KRA_SCRATCH_CACHE.get(key);
+                if(c!=null)out.addAll(c.numbers);
+            }
+        }
+        return out;
+    }
+
     private Set<Integer> resultScratchNumbers(String date,String region,int raceNo)throws Exception{
         String url="https://www.gumvit.com/statv40/result_detail.html?loc="+code(region)+"&race="+raceNo+"&racedate="+date;
-        Document doc=get(url);
+        Document doc=getPrimary(url);
         if(!date.equals(actualDate(doc))||raceNo!=actualRaceNo(doc))return new HashSet<>();
         return ScratchDetector.resultScratchNumbers(doc);
     }
 
     private JSONObject fetch(String date,String region,int raceNo)throws Exception{
+        String ckey=cacheKey(date,region,raceNo); long now=System.currentTimeMillis();
+        synchronized(RACE_CACHE){
+            CacheEntry c=RACE_CACHE.get(ckey);
+            if(c!=null && now-c.at<=RACE_CACHE_TTL_MS)return new JSONObject(c.value.toString());
+        }
         String url="https://www.gumvit.com/statv40/chulma_detail.html?loc="+code(region)+"&m_date="+date+"&race_no="+raceNo+"&type="+typeCode(date,region);
-        Document doc=get(url);String parsedDate=actualDate(doc);int parsedRace=actualRaceNo(doc);
+        Document doc=getPrimary(url);String parsedDate=actualDate(doc);int parsedRace=actualRaceNo(doc);
         if(parsedDate.isEmpty()||parsedRace<1)throw new Exception("검빛 페이지 날짜/경주번호 확인 실패");
         if(!date.equals(parsedDate)||raceNo!=parsedRace)throw new Exception("경주 정보 불일치: 요청 "+date+" "+raceNo+"R / 검빛 "+parsedDate+" "+parsedRace+"R");
 
-        Set<Integer> resultScratches=new HashSet<>();try{resultScratches.addAll(resultScratchNumbers(date,region,raceNo));}catch(Exception ignored){}
+        Set<Integer> resultScratches=new HashSet<>();
+        try{resultScratches.addAll(resultScratchNumbers(date,region,raceNo));}catch(Exception ignored){}
+        Set<Integer> kraScratches=kraChangeScratches(date,region,raceNo);
+        resultScratches.addAll(kraScratches);
         Element target=null;for(Element t:doc.select("table")){String x=t.text();if(x.contains("마번")&&x.contains("마명")&&x.contains("조교사")&&x.contains("기수"))target=t;}
         if(target==null)throw new Exception("검빛 출전마 표 미검출");
         JSONArray horses=new JSONArray(),excluded=new JSONArray();Set<Integer> seen=new HashSet<>();
@@ -66,22 +133,24 @@ public class GumvitBridge {
             JSONObject h=new JSONObject().put("number",no).put("name",name).put("record",td.size()>2?td.get(2).text().trim():"")
                     .put("trainer",td.size()>3?td.get(3).text().trim().replaceAll("\\(\\d+\\)$",""):"")
                     .put("jockey",td.size()>4?td.get(4).text().trim():"").put("active",active).put("excluded",!active)
-                    .put("excludeSource",resultScratch?"RESULT_STATUS":(entryScratch?"ENTRY_STATUS":""));
+                    .put("excludeSource",resultScratch?(kraScratches.contains(no)?"KRA_CHANGE_OR_RESULT":"RESULT_STATUS"):(entryScratch?"ENTRY_STATUS":""));
             StringBuilder tail=new StringBuilder();for(int i=5;i<td.size();i++){String x=td.get(i).text().trim();if(!x.isEmpty()){if(tail.length()>0)tail.append(' ');tail.append(x);}}h.put("expert",tail.toString());
             String pop="";for(int i=td.size()-1;i>=5;i--){String x=td.get(i).text().trim();if(x.matches("\\d{1,4}")){pop=x;break;}}h.put("popularity",pop);
             if(active)horses.put(h);else excluded.put(h);
         }
         if(horses.length()==0)throw new Exception("유효 출전마 없음");
-        return new JSONObject().put("ok",true).put("verified",true).put("source",url).put("requestedDate",date).put("actualDate",parsedDate)
+        JSONObject out=new JSONObject().put("ok",true).put("verified",true).put("source",url).put("requestedDate",date).put("actualDate",parsedDate)
                 .put("requestedRaceNo",raceNo).put("actualRaceNo",parsedRace).put("region",region).put("activeCount",horses.length()).put("excludedCount",excluded.length())
-                .put("horses",horses).put("excludedHorses",excluded);
+                .put("supplementalSource","KRA_THIS_WEEK_CHANGE").put("horses",horses).put("excludedHorses",excluded);
+        synchronized(RACE_CACHE){RACE_CACHE.put(ckey,new CacheEntry(now,new JSONObject(out.toString())));}
+        return out;
     }
 
     private static Double payoutOdd(String text,String label){Matcher m=Pattern.compile("배당률.*?"+Pattern.quote(label)+"\\s*:?\\s*[^0-9]*([0-9]+(?:\\.[0-9]+)?)").matcher(text);return m.find()?Double.parseDouble(m.group(1)):null;}
     private static String sortedKey(int...n){java.util.Arrays.sort(n);StringBuilder b=new StringBuilder();for(int i=0;i<n.length;i++){if(i>0)b.append('-');b.append(n[i]);}return b.toString();}
 
     private JSONObject fetchResult(String date,String region,int raceNo)throws Exception{
-        String url="https://www.gumvit.com/statv40/result_detail.html?loc="+code(region)+"&race="+raceNo+"&racedate="+date;Document doc=get(url);
+        String url="https://www.gumvit.com/statv40/result_detail.html?loc="+code(region)+"&race="+raceNo+"&racedate="+date;Document doc=getPrimary(url);
         String pd=actualDate(doc);int pr=actualRaceNo(doc);if(!date.equals(pd)||raceNo!=pr)throw new Exception("경주결과 정보 불일치");
         Element table=findResultTable(doc);if(table==null)throw new Exception("경주결과 착순표 미확정");Element header=null;
         for(Element tr:table.select("tr")){String x=tr.text().replace(" ","");if(x.contains("순위")&&x.contains("마번")&&x.contains("마명")){header=tr;break;}}
