@@ -24,3 +24,4 @@ PRD에는 승식별 후보의 정확한 가중치 공식이 고정되어 있지 
 
 ## APK 빌드
 GitHub Actions가 `app-debug.apk`를 자동 생성합니다.
+
