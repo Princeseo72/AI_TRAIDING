@@ -797,6 +797,49 @@ public class StorageBridge {
         return new JSONObject().put("state", state).put("metrics", metrics);
     }
 
+    private JSONObject evaluatePegasusSnapshot(JSONObject snapshot, JSONObject result) throws Exception {
+        JSONObject peg = snapshot.optJSONObject("pegasusResult");
+        JSONArray predicted = peg == null ? null : peg.optJSONArray("final123");
+        JSONArray finishers = result.optJSONArray("finishers");
+        JSONArray actual = new JSONArray();
+        if (finishers != null) {
+            java.util.List<JSONObject> list = new java.util.ArrayList<>();
+            for (int i = 0; i < finishers.length(); i++) { JSONObject x = finishers.optJSONObject(i); if (x != null) list.add(x); }
+            java.util.Collections.sort(list, (a,b) -> Integer.compare(a.optInt("rank",999), b.optInt("rank",999)));
+            for (int i = 0; i < Math.min(3, list.size()); i++) actual.put(list.get(i).optInt("number"));
+        }
+        JSONArray pred = new JSONArray();
+        if (predicted != null) for (int i = 0; i < Math.min(3, predicted.length()); i++) pred.put(predicted.optJSONObject(i).optInt("horseNumber"));
+        boolean p1 = pred.length() > 0 && actual.length() > 0 && pred.optInt(0) == actual.optInt(0);
+        boolean exact = pred.length() == 3 && actual.length() == 3 &&
+                pred.optInt(0) == actual.optInt(0) && pred.optInt(1) == actual.optInt(1) && pred.optInt(2) == actual.optInt(2);
+        int top3 = 0;
+        for (int i = 0; i < pred.length(); i++) for (int j = 0; j < actual.length(); j++) if (pred.optInt(i) == actual.optInt(j)) { top3++; break; }
+        String cause = exact ? "MATCH" : (p1 ? "ORDERED_POSITION_MISS" : "FINAL_P1_MISS");
+        if (peg == null) cause = "PEGASUS_SNAPSHOT_MISSING";
+        return new JSONObject().put("predicted", pred).put("actual", actual)
+                .put("p1Hit", p1).put("exact123", exact).put("top3Count", top3)
+                .put("cause", cause).put("version", "ATTRIBUTION-v1");
+    }
+
+    private void recordPerformanceMetrics(SQLiteDatabase db, String region, JSONObject attribution, JSONObject snapshot) {
+        try {
+            JSONObject peg = snapshot.optJSONObject("pegasusResult");
+            String modelVersion = peg == null ? "UNKNOWN" : peg.optString("engineVersion", "UNKNOWN");
+            Object[][] metrics = new Object[][]{
+                    {"p1_hit", attribution.optBoolean("p1Hit") ? 1.0 : 0.0},
+                    {"exact123_hit", attribution.optBoolean("exact123") ? 1.0 : 0.0},
+                    {"top3_count", (double) attribution.optInt("top3Count")}
+            };
+            for (Object[] m : metrics) {
+                ContentValues v = new ContentValues();
+                v.put("metric_scope", "PEGASUS_FINAL"); v.put("region", region); v.put("metric_name", (String)m[0]);
+                v.put("metric_value", (Double)m[1]); v.put("window_key", "RACE"); v.put("model_version", modelVersion);
+                db.insert("performance_metrics", null, v);
+            }
+        } catch (Exception ignored) {}
+    }
+
     private JSONObject materializeNextRaceContext(SQLiteDatabase db, String date, String region, int raceNo) throws Exception {
         long started = System.nanoTime();
         JSONObject versions = versionContract(db);
@@ -822,16 +865,24 @@ public class StorageBridge {
         SQLiteDatabase db = null; long started = System.nanoTime();
         try {
             db = helper.getWritableDatabase(); db.beginTransaction();
-            String date, region; int raceNo; JSONObject payload, result;
+            String date, region; int raceNo; JSONObject payload, result, snapshot;
             try (Cursor c = db.rawQuery(
-                    "SELECT a.race_date,a.region,a.race_number,a.payload_json,o.result_json FROM analysis_records a JOIN race_outcomes o ON o.analysis_record_id=a.id WHERE a.id=? LIMIT 1",
+                    "SELECT a.race_date,a.region,a.race_number,a.payload_json,o.result_json,a.prediction_snapshot_json FROM analysis_records a JOIN race_outcomes o ON o.analysis_record_id=a.id WHERE a.id=? LIMIT 1",
                     new String[]{String.valueOf(analysisId)})) {
                 if (!c.moveToFirst()) return error("검증된 실제결과가 없습니다.");
                 date = c.getString(0); region = c.getString(1); raceNo = c.getInt(2);
                 payload = new JSONObject(c.getString(3)); result = new JSONObject(c.getString(4));
+                snapshot = c.isNull(5) ? new JSONObject() : new JSONObject(c.getString(5));
             }
             updateRegionalProfileState(db, date, region, raceNo, result);
             updateRatingState(db, date, region, raceNo, payload, result);
+
+            JSONObject attribution = evaluatePegasusSnapshot(snapshot, result);
+            ContentValues eo = new ContentValues();
+            eo.put("analysis_record_id", analysisId); eo.put("engine_name", "ERROR_ATTRIBUTION");
+            eo.put("output_json", attribution.toString()); eo.put("engine_version", "ATTRIBUTION-v1");
+            db.insert("prediction_engine_outputs", null, eo);
+            recordPerformanceMetrics(db, region, attribution, snapshot);
 
             JSONObject trackState = new JSONObject().put("status", "INSUFFICIENT_FIELDS")
                     .put("note", "gate/pace/section feature materialization 전에는 Track Bias 수치 생성 금지");
