@@ -38,8 +38,12 @@ jobs:
       - name: Run analysis and exclusion tests
         run: node test-analysis.js && node test-exclusion.js
 
-      - name: Run real scratch parser unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.KraRaceParserTest --tests com.kplay.horseracing.gumvit.DualSourceLiveSmokeTest
+      - name: Run race parser deterministic tests
+        run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.KraRaceParserTest
+
+      - name: Run dual-source live diagnostic
+        continue-on-error: true
+        run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.DualSourceLiveSmokeTest
 
       - name: Run excluded-runner JS boundary tests
         run: node test-runner-guard.js
