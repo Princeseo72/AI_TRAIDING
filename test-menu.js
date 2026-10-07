@@ -23,6 +23,10 @@ assert(!gum.includes('rankText.startsWith("취") || tr.text().contains'),'legacy
 for(const fn of ['getAnalysis','healthCheck','cleanupData','attachRaceResult','getActiveModel','getMlStatus','recordTrainingEvent'])assert(store.includes(fn),`Storage ${fn} missing`);
 assert(main.includes('finishAndRemoveTask')||main.includes('finishAffinity'),'real exit missing');
 assert(app.includes('analysisEpoch'),'stale reanalysis guard missing');
+assert(gum.includes('GUMVIT_DAEBAK_PUBLIC'),'public historical record enrichment missing');
+assert(gum.includes('daebak_all.html'),'public historical ability source missing');
+assert(app.includes('PUBLIC_HISTORY_READY')&&app.includes('공개 과거전적 연결'),'raw history state must be translated for UI');
+assert(app.includes('learningModel:b.learningModel'),'PEGASUS must receive active learned model');
 assert(app.includes('refreshField('),'race refresh guard missing');
 assert(app.includes('trainFromResult'),'result-to-learning pipeline missing');
 for(const action of ['입력/출전마 검증','Hist Context','Regional Profile','Fundamental','Rating','Track Bias','Market T20/T5','Live Odds','Blend','Calibration','Ordered Finish','Final Eight','Model Integrity'])assert(app.includes(action),`visible processing action missing: ${action}`);
