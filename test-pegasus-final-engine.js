@@ -44,4 +44,8 @@ const histAbility={...input,horses:input.horses.map((h,i)=>({...h,record:'',abil
 const ha=E.analyze(histAbility);
 assert(ha.fundamental.evidence['4'].ability.speed>.9,'public historical ability not consumed');
 assert(ha.fundamental.p1['4']>ha.fundamental.p1['3'],'historical ability must change fundamental ordering');
+const learnedModel={modelVersion:'ML-verified',sampleCount:25,weights:{WinScore:{share:.05,lmi:.05,crossPool:.05,popularity:.05,stability:.05,structure:.05,horseRating:.05,jockeyRating:.05,trainerRating:.05,regionalPrior:.05,historicalPrior:.8}}};
+const lr=E.analyze({...input,learningModel:learnedModel,preRaceContext:{...input.preRaceContext,historicalPrior:{status:'PUBLIC_HISTORY_READY',horsePriors:{'1':.05,'2':.05,'3':.9,'4':.05}}}});
+assert(lr.learned.status==='ACTIVE_LEARNED_ADJUSTMENT','verified learned model not wired');
+assert(Math.abs(lr.learned.p1['3']-lr.fundamental.p1['3'])>1e-5,'learned weights must alter PEGASUS model probability');
 console.log('PEGASUS FINAL ENGINE TESTS PASSED');
