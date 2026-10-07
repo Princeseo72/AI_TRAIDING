@@ -8,6 +8,8 @@ assert(!store.includes('payload.put("postRaceResult"'),'result attach must not r
 assert(store.includes('중복 학습 경주'),'duplicate training guard missing');
 assert(app.includes('trainFromResult'),'result learning pipeline missing');
 assert(app.includes('actualTop3'),'actual top3 evaluation missing');
-assert(app.includes('recordTrainingEvent'),'training persistence missing');
+assert(app.includes('recordTrainingBundle'),'global+regional training persistence missing');
+assert(app.includes('getLearningState'),'training must continue from latest candidate state');
+assert(app.includes('globalTraining')&&app.includes('regionalTraining'),'global/regional learning pipeline missing');
 assert(app.includes('ML 실패 - 기본 분석 유지'),'ML fallback missing');
 console.log('RESULT LEARNING CONTRACT TESTS PASSED');
