@@ -14,7 +14,13 @@ final class ScratchDetector {
             "출전취소", "출전제외", "경주제외", "취소", "제외"
     };
     private static final Pattern REPORT_CIRCLED = Pattern.compile(
-            "([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])[^①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]{0,120}(출전취소|출전제외|경주제외)"
+            "([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])[^①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]{0,160}(출전취소|출전제외|경주제외)"
+    );
+    private static final Pattern RESULT_ROW_SCRATCH = Pattern.compile(
+            "(?:^|\\s)(취|취소|제외)\\s+(\\d{1,2})\\s+[^\\n]{0,80}(?:출전취소|출전제외|경주제외)"
+    );
+    private static final Pattern DECISION_NUMBER = Pattern.compile(
+            "(\\d{1,2})번?[^\\n]{0,100}(출전취소|출전제외|경주제외)"
     );
 
     private ScratchDetector() {}
@@ -88,11 +94,16 @@ final class ScratchDetector {
             }
         }
 
-        Matcher m = REPORT_CIRCLED.matcher(doc.text());
+        String fullText = doc.text();
+        Matcher m = REPORT_CIRCLED.matcher(fullText);
         while (m.find()) {
             int no = circledNumber(m.group(1).charAt(0));
             if (no > 0) out.add(no);
         }
+        Matcher row = RESULT_ROW_SCRATCH.matcher(fullText);
+        while (row.find()) out.add(Integer.parseInt(row.group(2)));
+        Matcher decision = DECISION_NUMBER.matcher(fullText);
+        while (decision.find()) out.add(Integer.parseInt(decision.group(1)));
         return out;
     }
 
