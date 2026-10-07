@@ -11,6 +11,9 @@ assert(detector.includes('출전취소')&&detector.includes('출전제외'),'exp
 assert(detector.includes('alt')&&detector.includes('title')&&detector.includes('data-status'),'nested status attributes missing');
 assert(!detector.includes('style.contains("line-through")'),'generic strike-through must not exclude without status evidence');
 assert(gumvit.includes('boolean entryScratch=entryExcluded(tr),resultScratch=resultScratches.contains(no),active=!entryScratch&&!resultScratch'),'active state must combine entry/result scratch flags');
-assert(app.includes("filter(h=>h.active!==false&&!h.excluded)"),'UI must accept active horses only');
-assert(app.includes("S.pools={WIN:{T20:S.horses.map"),'WIN rows must be built from active horses only');
+assert(app.includes('RunnerGuard.activeHorses'),'UI must derive runners through RunnerGuard');
+assert(app.includes('RunnerGuard.validateNoExcludedLeak'),'UI must reject excluded-runner pool leakage');
+assert(app.includes('RunnerGuard.isKeyAllowed'),'manual combo entry must reject excluded runners');
+assert(app.includes('excludedHorses:S.excludedHorses'),'saved snapshots must preserve excluded-runner evidence');
+assert(app.includes("S.pools={WIN:{T20:S.horses.map"),'WIN rows must be built from guarded active horses only');
 console.log('STRICT EXCLUDED HORSE CONTRACT TESTS PASSED');
