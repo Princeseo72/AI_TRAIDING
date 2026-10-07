@@ -13,10 +13,12 @@ public class DualSourceLiveSmokeTest {
         for(String type:GumvitPageParser.typeCandidates(date)){
             String url="https://www.gumvit.com/statv40/chulma_detail.html?loc="+loc(region)+"&m_date="+date+"&race_no="+raceNo+"&type="+type;
             try{
-                Document d=Jsoup.connect(url).userAgent("Mozilla/5.0").timeout(7000).get();
+                Document d=Jsoup.connect(url)
+                        .userAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36")
+                        .referrer("https://www.gumvit.com/statv40/").timeout(7000).get();
                 if(GumvitPageParser.identityMatches(d,date,region,raceNo)){
-                    org.jsoup.nodes.Element t=GumvitPageParser.findEntryTable(d);
-                    if(t!=null)return t.select("tr").size()-1;
+                    java.util.List<GumvitPageParser.Entry> entries=GumvitPageParser.parseEntries(d);
+                    if(!entries.isEmpty())return entries.size();
                 }
             }catch(Exception ignored){}
         }
@@ -44,6 +46,10 @@ public class DualSourceLiveSmokeTest {
     @Test public void jejuOct2Race1LoadsFromEitherSource()throws Exception{assertDual("2026-10-02","제주",1);}
     @Test public void busanOct2Race1LoadsFromEitherSource()throws Exception{assertDual("2026-10-02","부산경남",1);}
     @Test public void jejuOct3Race2LoadsFromEitherSource()throws Exception{assertDual("2026-10-03","제주",2);}
+    @Test public void jejuOct3Race1ProductionParserLoadsTenRunners()throws Exception{
+        int g=gumvitCount("2026-10-03","제주",1);
+        assertEquals("Android production parser must load the 10 visible runners even when premium section is restricted",10,g);
+    }
     @Test public void seoulOct4Race1LoadsFromEitherSource()throws Exception{
         int g=gumvitCount("2026-10-04","서울",1);
         assertTrue("Known Gumvit Seoul 2026-10-04 1R must expose runners, got "+g,g>=3);
