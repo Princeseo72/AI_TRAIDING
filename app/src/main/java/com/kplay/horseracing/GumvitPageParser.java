@@ -77,15 +77,28 @@ final class GumvitPageParser {
 
     static Element findEntryTable(Document doc){
         if(doc==null)return null;
+        Element best=null; int bestSize=Integer.MAX_VALUE;
+        // Gumvit nests layout tables. Pick the smallest table that owns both the
+        // public runner header and numeric runner rows; never return an outer layout table.
         for(Element table:doc.select("table")){
-            for(Element tr:table.select("tr")){
+            boolean header=false,runner=false;
+            for(Element tr:table.children().select(":scope > tbody > tr, :scope > tr")){
                 String x=tr.text().replace(" ","").replace("\u00A0","");
-                if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수")){
-                    return table;
-                }
+                if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수"))header=true;
+                org.jsoup.select.Elements td=tr.select(":scope > td");
+                if(!td.isEmpty()&&td.get(0).text().trim().matches("\\d{1,2}"))runner=true;
+            }
+            if(header&&runner&&table.text().length()<bestSize){best=table;bestSize=table.text().length();}
+        }
+        // Compatibility fallback for flat fixtures and minor markup variants.
+        if(best==null)for(Element table:doc.select("table")){
+            String x=table.text().replace(" ","").replace("\u00A0","");
+            if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수")){
+                int numeric=0;for(Element tr:table.select("tr")){org.jsoup.select.Elements td=tr.select("td");if(!td.isEmpty()&&td.get(0).text().trim().matches("\\d{1,2}"))numeric++;}
+                if(numeric>=1&&table.text().length()<bestSize){best=table;bestSize=table.text().length();}
             }
         }
-        return null;
+        return best;
     }
 
     static final class Entry {
