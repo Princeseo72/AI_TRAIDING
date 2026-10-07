@@ -190,7 +190,7 @@ public class StorageBridge {
 
     private JSONObject profileWindow(JSONArray outcomes, int limit) throws Exception {
         int count = Math.min(limit, outcomes.length());
-        int favoriteWins = 0, exactaCount = 0, trifectaCount = 0;
+        int favoriteWins = 0, popularityKnown = 0, exactaCount = 0, trifectaCount = 0;
         double exactaSum = 0, trifectaSum = 0;
         for (int i = 0; i < count; i++) {
             JSONObject r = outcomes.optJSONObject(i);
@@ -200,7 +200,7 @@ public class StorageBridge {
                 JSONObject first = f.optJSONObject(0);
                 if (first != null) {
                     int pop = first.optInt("popularity", first.optInt("popularityRank", 0));
-                    if (pop == 1) favoriteWins++;
+                    if (pop > 0) { popularityKnown++; if (pop == 1) favoriteWins++; }
                 }
             }
             JSONObject p = r.optJSONObject("payouts");
@@ -217,7 +217,7 @@ public class StorageBridge {
         }
         return new JSONObject()
                 .put("count", count)
-                .put("favoriteWinRate", count == 0 ? JSONObject.NULL : (double) favoriteWins / count)
+                .put("favoriteWinRate", popularityKnown == 0 ? JSONObject.NULL : (double) favoriteWins / popularityKnown)
                 .put("meanExactaOdds", exactaCount == 0 ? JSONObject.NULL : exactaSum / exactaCount)
                 .put("meanTrifectaOdds", trifectaCount == 0 ? JSONObject.NULL : trifectaSum / trifectaCount);
     }
