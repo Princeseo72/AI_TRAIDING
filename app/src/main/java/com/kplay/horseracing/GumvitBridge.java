@@ -239,36 +239,26 @@ public class GumvitBridge {
     }
 
     @JavascriptInterface public String selfDiagnose(){
-        long started=System.currentTimeMillis();
-        JSONObject out=new JSONObject();
+        long started=System.currentTimeMillis(); JSONObject out=new JSONObject();
         try{
-            String date="2026-10-03", region="제주"; int raceNo=2;
-            String url="https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=2&type=6";
+            String date="2026-10-03",region="제주";int raceNo=1;
+            String url="https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=1&type=6";
             Document d=getOnce(url,7000);
             boolean identity=GumvitPageParser.identityMatches(d,date,region,raceNo);
             Element table=GumvitPageParser.findEntryTable(d);
-            int runners=0;
-            if(table!=null){
-                for(Element tr:table.select("tr")){
-                    Elements td=tr.select("td");
-                    if(!td.isEmpty() && td.get(0).text().trim().matches("\\d{1,2}"))runners++;
-                }
-            }
-            boolean parser=identity && table!=null && runners>=2;
-            out.put("gumvitHttp",true).put("gumvitParser",parser).put("gumvitRunnerRows",runners)
-               .put("canary","2026-10-03|제주|2R").put("duplicateResultLookup",false)
-               .put("preRaceSourcePolicy","CHULMA_DETAIL_ONCE + KRA_CHANGE; RESULT_DETAIL_POST_RACE_ONLY");
-            boolean modules=true;
-            try{
-                Class.forName("com.kplay.horseracing.gumvit.GumvitPageParser");
-                Class.forName("com.kplay.horseracing.gumvit.KraRaceParser");
-                Class.forName("com.kplay.horseracing.gumvit.ScratchDetector");
-            }catch(Throwable x){modules=false;}
+            java.util.List<GumvitPageParser.Entry> entries=GumvitPageParser.parseEntries(d);
+            boolean parser=identity&&table!=null&&entries.size()>=3;
+            String body=d.body()==null?d.text():d.body().text();
+            out.put("gumvitHttp",true).put("gumvitParser",parser).put("gumvitRunnerRows",entries.size())
+               .put("premiumRestrictionPresent",body.contains("이용권한이 없습니다"))
+               .put("entryTablePresent",table!=null).put("tableCount",d.select("table").size())
+               .put("pageTitle",d.title()).put("finalUrl",d.location())
+               .put("canary","2026-10-03|제주|1R").put("duplicateResultLookup",false)
+               .put("preRaceSourcePolicy","VISIBLE_ENTRY_TABLE + KRA_CHANGE; PREMIUM_RESTRICTION_IGNORED; RESULT_DETAIL_POST_RACE_ONLY");
+            boolean modules=true;try{Class.forName("com.kplay.horseracing.gumvit.GumvitPageParser");Class.forName("com.kplay.horseracing.gumvit.KraRaceParser");Class.forName("com.kplay.horseracing.gumvit.ScratchDetector");}catch(Throwable x){modules=false;}
             out.put("modules",modules).put("ok",parser&&modules);
-            if(!parser)out.put("error","검빛 HTTP는 응답했지만 경주 identity/출전표 parser 진단 실패");
-        }catch(Exception e){
-            try{out.put("ok",false).put("gumvitHttp",false).put("gumvitParser",false).put("error",e.getMessage());}catch(Exception ignored){}
-        }
+            if(!parser)out.put("error","검빛 HTTP 응답 내 visible 출전마 table parser 실패");
+        }catch(Exception e){try{out.put("ok",false).put("gumvitHttp",false).put("gumvitParser",false).put("error",e.getMessage());}catch(Exception ignored){}}
         try{out.put("durationMs",System.currentTimeMillis()-started);}catch(Exception ignored){}
         return out.toString();
     }
