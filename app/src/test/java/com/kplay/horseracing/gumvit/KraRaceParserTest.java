@@ -1,30 +1,31 @@
 package com.kplay.horseracing.gumvit;
 
 import org.jsoup.Jsoup;
-import org.json.JSONArray;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class KraRaceParserTest {
     @Test public void parsesTargetRaceFromJockeyRidingTable() throws Exception {
         String html="<html><body><h3>2026/10/03 (토)</h3><table>"
-          +"<tr><th>기수명</th><th>출전</th><th>1</th><th>2</th><th>3</th></tr>"
+          +"<tr><th rowspan='2'>기수명</th><th rowspan='2'>출전</th><th colspan='3'>경주</th></tr>"
+          +"<tr><th>1</th><th>2</th><th>3</th></tr>"
           +"<tr><td>김한남</td><td>2</td><td>①첫말<br>(1)김길홍</td><td>②태흥산성<br>(19)윤호상</td><td></td></tr>"
           +"<tr><td>문현진</td><td>1</td><td></td><td>④천하제왕<br>(13)고영덕</td><td></td></tr>"
           +"</table></body></html>";
-        JSONArray a=KraRaceParser.parseRiding(Jsoup.parse(html),"2026-10-03","제주",2);
-        assertEquals(2,a.length());
-        assertEquals(2,a.getJSONObject(0).getInt("number"));
-        assertEquals("태흥산성",a.getJSONObject(0).getString("name"));
-        assertEquals("김한남",a.getJSONObject(0).getString("jockey"));
-        assertEquals("윤호상",a.getJSONObject(0).getString("trainer"));
-        assertEquals(4,a.getJSONObject(1).getInt("number"));
+        java.util.List<KraRaceParser.Entry> a=KraRaceParser.parseRiding(Jsoup.parse(html),"2026-10-03","제주",2);
+        assertEquals(2,a.size());
+        assertEquals(2,a.get(0).number);
+        assertEquals("태흥산성",a.get(0).name);
+        assertEquals("김한남",a.get(0).jockey);
+        assertEquals("윤호상",a.get(0).trainer);
+        assertEquals(4,a.get(1).number);
     }
 
     @Test public void rejectsWrongDateRidingPage() throws Exception {
-        String html="<html><body><h3>2026/10/02 (금)</h3><table><tr><th>기수명</th><th>출전</th><th>1</th></tr>"
-          +"<tr><td>기수</td><td>1</td><td>①말<br>(1)조교</td></tr></table></body></html>";
-        assertEquals(0,KraRaceParser.parseRiding(Jsoup.parse(html),"2026-10-03","제주",1).length());
+        String html="<html><body><h3>2026/10/02 (금)</h3><table>"
+          +"<tr><th rowspan='2'>기수명</th><th rowspan='2'>출전</th><th>경주</th></tr>"
+          +"<tr><th>1</th></tr><tr><td>기수</td><td>1</td><td>①말<br>(1)조교</td></tr></table></body></html>";
+        assertEquals(0,KraRaceParser.parseRiding(Jsoup.parse(html),"2026-10-03","제주",1).size());
     }
 
     @Test public void parsesCircledHorseNumbers() {
