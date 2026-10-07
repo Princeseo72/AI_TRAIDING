@@ -60,4 +60,21 @@ public class GumvitPageParserTest {
         assertNotNull(GumvitPageParser.findEntryTable(Jsoup.parse(html)));
         assertTrue(GumvitPageParser.findEntryTable(Jsoup.parse(html)).text().contains("정상마"));
     }
+    @Test
+    public void resolvesAnonymousGumvitIdentityFromExactUrlWhenVisibleLabelsAreMissing() {
+        String html="<html><body><div>서울 경마장</div>"
+                +"<table><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th></tr>"
+                +"<tr><td>1</td><td>와일드캐비어</td><td>전 (/)</td><td>토니</td><td>이동하</td></tr>"
+                +"<tr><td>2</td><td>클로버삭스</td><td>전 (/)</td><td>강성오</td><td>이혁</td></tr></table></body></html>";
+        String url="https://www.gumvit.com/statv40/chulma_detail.html?loc=S&m_date=2026-10-04&race_no=1&type=7";
+        org.jsoup.nodes.Document d=Jsoup.parse(html,url);
+        assertEquals("",GumvitPageParser.actualDate(d));
+        assertEquals(-1,GumvitPageParser.actualRaceNo(d));
+        assertTrue(GumvitPageParser.identityMatches(d,"2026-10-04","서울",1));
+        assertEquals("2026-10-04",GumvitPageParser.resolvedDate(d,"2026-10-04"));
+        assertEquals(1,GumvitPageParser.resolvedRaceNo(d,1));
+        assertFalse(GumvitPageParser.identityMatches(d,"2026-10-04","서울",2));
+        assertFalse(GumvitPageParser.identityMatches(d,"2026-10-05","서울",1));
+    }
+
 }
