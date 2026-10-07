@@ -20,5 +20,6 @@ assert(main.includes('finishAndRemoveTask')||main.includes('finishAffinity'),'re
 assert(app.includes('analysisEpoch'),'stale reanalysis guard missing');
 assert(app.includes('refreshField('),'race refresh guard missing');
 assert(app.includes('trainFromResult'),'result-to-learning pipeline missing');
+for(const action of ['입력/출전마 검증','Q/LMI 계산','Cross-Pool 분석','역할형·배당형 착순','최종 8조합·ML 보정'])assert(app.includes(action),`visible processing action missing: ${action}`);
 assert(app.includes('finalCombinations'),'eight-combination UI missing');
 console.log('MENU/BRIDGE CONTRACT TESTS PASSED');
