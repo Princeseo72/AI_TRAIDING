@@ -18,3 +18,5 @@ odds_uid = race_uid:{pool_code}:{selection_key}:FINAL
 
 DB schema_version=PEGASUS_HIST_V1. 원본행 UPDATE 금지. 동일 source_hash는 INSERT OR IGNORE.
 PEGASUS는 exported DB의 schema_version을 확인하고 read-only import한다.
+
+Build trigger: isolated collector v1 batch.
