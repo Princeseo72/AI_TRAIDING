@@ -54,6 +54,20 @@ function fundamentalLayer(horses,context){
  const p1=normalize(raw);
  return{status:'AVAILABLE_FEATURES_ONLY',p1,rank:rankProb(p1),evidence,limitations:['5년 Hist 미연결 시 현재 출전표 전적/인기도/저장 Rating만 사용']};
 }
+function learnedModelLayer(fund,market,model,context){
+ if(!model||!model.weights||!(model.sampleCount>0))return{status:'NO_VERIFIED_LEARNING',p1:{...fund.p1},sampleCount:0,modelVersion:model?.modelVersion||null};
+ const w=model.weights.WinScore||model.weights||{},raw={};
+ for(const k of Object.keys(fund.p1)){
+   const e=fund.evidence[k]||{},m=market.movementEvidence[k]||{},rating=e.rating?.status==='READY'?(.5+.5*e.rating.value):0;
+   const f={share:market.p5?.[k]||0,lmi:clamp((m.relativeLmi||0)/(1+Math.abs(m.relativeLmi||0)),-1,1),crossPool:clamp(m.crossPool||0,-1,1),
+    popularity:e.popularityPrior||0,stability:.5,structure:.5,horseRating:rating,jockeyRating:rating,trainerRating:rating,
+    regionalPrior:e.regionalPrior||0,historicalPrior:e.historicalPrior||0};
+   let s=0,z=0;for(const n of Object.keys(f)){const ww=Number(w[n]);if(Number.isFinite(ww)){s+=ww*f[n];z+=Math.abs(ww);}}
+   raw[k]=z?s/z:fund.p1[k];
+ }
+ const learned=normalize(raw),mix={};for(const k of Object.keys(fund.p1))mix[k]=.75*fund.p1[k]+.25*(learned[k]||0);
+ return{status:'ACTIVE_LEARNED_ADJUSTMENT',p1:normalize(mix),raw:learned,sampleCount:model.sampleCount,modelVersion:model.modelVersion};
+}
 function blendLayer(model,market,context){
  const trained=context?.blendModel;
  const histReady=['READY','HIST_READY','PUBLIC_HISTORY_READY'].includes(context?.historicalPrior?.status),regN=Number(context?.regionalProfile?.sampleCount)||0,ratingN=Number(context?.ratingState?.sampleCount||context?.dataFreshness?.ratingRows)||0;
@@ -108,8 +122,8 @@ function analyze(input){
   if(horses.length<3)return{ok:false,errors:['유효 출전마가 3두 미만']};
   const active=new Set(horses.map(h=>+h.number));
   for(const r of [...(input?.pools?.WIN?.T20||[]),...(input?.pools?.WIN?.T5||[])])if(!active.has(+r.key))return{ok:false,errors:['제외/비활성 마번 배당 유입']};
-  const market=marketLayer(input.pools),fundamental=fundamentalLayer(horses,input.preRaceContext||{}),blend=blendLayer(fundamental.p1,market.p1,input.preRaceContext||{}),calibration=calibrationLayer(blend.p1,input.preRaceContext||{}),ordered=orderedLayer(calibration.p1),final123=positionFinal(ordered),finalEight=aggregateCombos(ordered),unc=uncertainty(input.preRaceContext||{},market.p1,fundamental.p1);
-  return{ok:true,engineVersion:VERSION,versions:{...VERSIONS},market,fundamental,blend,calibration,ordered,final123,finalEight,uncertainty:unc,
+  const market=marketLayer(input.pools),fundamental=fundamentalLayer(horses,input.preRaceContext||{}),learned=learnedModelLayer(fundamental,market,input.learningModel,input.preRaceContext||{}),blend=blendLayer(learned.p1,market.p1,input.preRaceContext||{}),calibration=calibrationLayer(blend.p1,input.preRaceContext||{}),ordered=orderedLayer(calibration.p1),final123=positionFinal(ordered),finalEight=aggregateCombos(ordered),unc=uncertainty(input.preRaceContext||{},market.p1,fundamental.p1);
+  return{ok:true,engineVersion:VERSION,versions:{...VERSIONS},market,fundamental,learned,blend,calibration,ordered,final123,finalEight,uncertainty:unc,
    engineCompare:{market:market.rank.slice(0,3),fundamental:fundamental.rank.slice(0,3),final:ordered.scenarios[0]?.order.map((h,i)=>({horseNumber:h,position:i+1}))||[]},
    contextVersion:input.preRaceContext?.contextVersion||null,histStatus:input.preRaceContext?.historicalPrior?.status||'HIST_PENDING'};
  }catch(e){return{ok:false,errors:[String(e?.message||e)]}}
