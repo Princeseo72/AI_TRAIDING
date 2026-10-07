@@ -16,4 +16,9 @@ assert(app.includes('RunnerGuard.validateNoExcludedLeak'),'UI must reject exclud
 assert(app.includes('RunnerGuard.isKeyAllowed'),'manual combo entry must reject excluded runners');
 assert(app.includes('excludedHorses:S.excludedHorses'),'saved snapshots must preserve excluded-runner evidence');
 assert(app.includes("S.pools={WIN:{T20:S.horses.map"),'WIN rows must be built from guarded active horses only');
+assert(app.includes('manualExcludedNumbers'),'manual exclusion must survive T20/T5 refreshes');
+assert(app.includes('manuallyExcludeHorse'),'manual hard-exclusion control missing');
+assert(app.includes('manualExclude'),'race screen must expose exclusion safety control');
+assert(detector.includes('RESULT_ROW_SCRATCH'),'result-table scratch fallback missing');
+assert(detector.includes('DECISION_NUMBER'),'decision/report scratch fallback missing');
 console.log('STRICT EXCLUDED HORSE CONTRACT TESTS PASSED');
