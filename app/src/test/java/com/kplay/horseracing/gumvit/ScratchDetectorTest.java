@@ -72,4 +72,10 @@ public class ScratchDetectorTest {
         assertFalse(numbers.contains(10));
     }
 
+    @Test
+    public void entryHistoricalNoteContainingScratchWordDoesNotExcludeCurrentRunner() {
+        Element row = Jsoup.parse("<table><tr><td>9</td><td>천년여왕</td><td>과거 출전취소 이후 정상 출전</td></tr></table>").selectFirst("tr");
+        assertFalse("현재 상태 셀이 아닌 과거 설명문으로 제외하면 안 됨", ScratchDetector.isEntryExcluded(row));
+    }
+
 }
