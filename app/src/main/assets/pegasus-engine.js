@@ -13,13 +13,18 @@ function parseRecord(s){
 }
 function marketSnapshot(rows){const inv={};for(const r of rows||[]){const o=Number(r.odds);if(!(o>0))throw new Error('유효하지 않은 단승 배당');inv[String(r.key)]=1/o}return normalize(inv)}
 function marketLayer(pools){
- const t20=marketSnapshot(pools?.WIN?.T20),t5=marketSnapshot(pools?.WIN?.T5),lmi={},movementEvidence={},raw={};
+ const t20=marketSnapshot(pools?.WIN?.T20),t5=marketSnapshot(pools?.WIN?.T5),lmi={},movementEvidence={},raw={},cross={};
+ for(const pool of ['QUINELLA','EXACTA','TRIO','TRIFECTA']){
+   const a=marketSnapshot(pools?.[pool]?.T20),b=marketSnapshot(pools?.[pool]?.T5);if(!Object.keys(a).length||!Object.keys(b).length)continue;
+   for(const key of Object.keys(b)){const nums=String(key).match(/\d+/g)||[];for(const n of nums){const d=(b[key]||0)-(a[key]||0);(cross[n]||(cross[n]=[])).push(d);}}
+ }
  const r20=new Map(rankProb(t20).map(x=>[String(x.horseNumber),x.position])),r5=new Map(rankProb(t5).map(x=>[String(x.horseNumber),x.position]));
  for(const k of Object.keys(t5)){
    const shareDelta=(t5[k]||0)-(t20[k]||0),relativeLmi=t20[k]>0?shareDelta/t20[k]:0,rankShift=(r20.get(k)||0)-(r5.get(k)||0);
    const bounded=clamp(relativeLmi,-.60,.60),rankAdj=clamp(rankShift/Math.max(3,Object.keys(t5).length),-.25,.25);
-   const movement=clamp(.75*bounded+.25*rankAdj,-.55,.55);
-   lmi[k]=relativeLmi;movementEvidence[k]={shareDelta,relativeLmi,rankShift,movement};
+   const xs=cross[k]||[],crossPool=xs.length?clamp(xs.reduce((s,v)=>s+v,0)/xs.length*4,-.25,.25):0;
+   const movement=clamp(.60*bounded+.20*rankAdj+.20*crossPool,-.55,.55);
+   lmi[k]=relativeLmi;movementEvidence[k]={shareDelta,relativeLmi,rankShift,crossPool,crossPoolCount:xs.length,movement};
    raw[k]=Math.max(EPS,(t20[k]||EPS)*Math.exp(movement));
  }
  const p1=normalize(raw);
