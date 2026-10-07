@@ -265,6 +265,36 @@ public class StorageBridge {
         }
     }
 
+    private JSONObject runnerRatings(SQLiteDatabase db, JSONArray horses, String region) throws Exception {
+        JSONObject out = new JSONObject();
+        for (int i=0;i<horses.length();i++) {
+            JSONObject h=horses.optJSONObject(i); if(h==null)continue;
+            JSONObject x=new JSONObject();
+            x.put("horse", currentRating(db,"HORSE",h.optString("name"),region));
+            x.put("jockey", currentRating(db,"JOCKEY",h.optString("jockey"),region));
+            x.put("trainer", currentRating(db,"TRAINER",h.optString("trainer"),region));
+            double mu=.60*x.getJSONObject("horse").optDouble("mu",0)+.25*x.getJSONObject("jockey").optDouble("mu",0)+.15*x.getJSONObject("trainer").optDouble("mu",0);
+            x.put("mu",mu);
+            out.put(String.valueOf(h.optInt("number")),x);
+        }
+        return out;
+    }
+
+    private JSONObject activeBlend(SQLiteDatabase db,String region)throws Exception{
+        try(Cursor c=db.rawQuery("SELECT blend_version,coefficients_json,metrics_json FROM blend_models WHERE region IN (?, 'GLOBAL') AND status='ACTIVE' ORDER BY CASE WHEN region=? THEN 0 ELSE 1 END,id DESC LIMIT 1",new String[]{region,region})){
+            if(!c.moveToFirst())return new JSONObject().put("status","FALLBACK").put("a",.30).put("b",.70).put("blendVersion","BLEND-FALLBACK-v1");
+            JSONObject q=new JSONObject(c.getString(1));
+            return new JSONObject().put("status","ACTIVE").put("blendVersion",c.getString(0)).put("a",q.optDouble("a",.30)).put("b",q.optDouble("b",.70)).put("metrics",new JSONObject(c.getString(2)));
+        }
+    }
+
+    private JSONObject activeCalibration(SQLiteDatabase db,String region)throws Exception{
+        try(Cursor c=db.rawQuery("SELECT calibration_version,method,params_json,metrics_json FROM calibration_models WHERE region IN (?, 'GLOBAL') AND status='ACTIVE' ORDER BY CASE WHEN region=? THEN 0 ELSE 1 END,id DESC LIMIT 1",new String[]{region,region})){
+            if(!c.moveToFirst())return new JSONObject().put("status","PENDING").put("method","IDENTITY");
+            return new JSONObject().put("status","ACTIVE").put("calibrationVersion",c.getString(0)).put("method",c.getString(1)).put("params",new JSONObject(c.getString(2))).put("metrics",new JSONObject(c.getString(3)));
+        }
+    }
+
     @JavascriptInterface
     public String getPreRaceContext(String date, String region, int raceNo, String horsesJson) {
         long start = System.nanoTime();
@@ -303,8 +333,11 @@ public class StorageBridge {
                             .put("note", "5년 Hist 인덱스 연결 전에는 로컬 검증결과만 사용"))
                     .put("ratingState", new JSONObject()
                             .put("status", ratingRows == 0 ? "RATING_PENDING" : "AVAILABLE")
-                            .put("rows", ratingRows))
+                            .put("rows", ratingRows)
+                            .put("horses", runnerRatings(db,horses,region)))
                     .put("trackBias", track)
+                    .put("blendModel", activeBlend(db,region))
+                    .put("calibrationModel", activeCalibration(db,region))
                     .put("champion", champion)
                     .put("dataFreshness", freshness)
                     .put("uncertainty", new JSONObject()
