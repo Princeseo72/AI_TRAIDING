@@ -52,7 +52,7 @@ function fundamentalLayer(horses,context){
 function blendLayer(model,market,context){
  const trained=context?.blendModel;
  const histReady=context?.historicalPrior?.status==='READY'||context?.historicalPrior?.status==='HIST_READY',regN=Number(context?.regionalProfile?.sampleCount)||0,ratingN=Number(context?.ratingState?.sampleCount||context?.dataFreshness?.ratingRows)||0;
- let a=histReady?.58:(regN>=20||ratingN>=20)?.50:.45,b=1-a,status='READINESS_FALLBACK';
+ let a=histReady ? .58 : ((regN>=20||ratingN>=20) ? .50 : .45),b=1-a,status='READINESS_FALLBACK';
  if(trained&&trained.status==='ACTIVE'&&Number.isFinite(+trained.a)&&Number.isFinite(+trained.b)){a=clamp(+trained.a,.30,.75);b=clamp(+trained.b,.25,.70);const z=a+b;a/=z;b/=z;status='TRAINED'}
  const u={};for(const k of Object.keys(market)){u[k]=a*Math.log(Math.max(EPS,model[k]||EPS))+b*Math.log(Math.max(EPS,market[k]||EPS))}
  return{status,a,b,p1:softmax(u)};
