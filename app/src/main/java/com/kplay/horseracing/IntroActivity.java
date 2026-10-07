@@ -37,6 +37,24 @@ public class IntroActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_intro);
+        ImageView logo = findViewById(R.id.introLogo);
+        DisplayMetrics dm = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(dm);
+        float logoScale = Math.min((dm.widthPixels * 0.80f) / 360f, (dm.heightPixels * 0.42f) / 308f);
+        ViewGroup.LayoutParams logoLp = logo.getLayoutParams();
+        logoLp.width = Math.max(160, Math.round(360f * logoScale));
+        logoLp.height = Math.max(137, Math.round(308f * logoScale));
+        logo.setLayoutParams(logoLp);
+        logo.setScaleX(0.55f);
+        logo.setScaleY(0.55f);
+        logo.setAlpha(0.08f);
+        logo.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(1200)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
         gauge=findViewById(R.id.preflightGauge); percent=findViewById(R.id.preflightPercent);
         current=findViewById(R.id.preflightCurrent); detail=findViewById(R.id.preflightDetail);
         internetState=findViewById(R.id.stateInternet); gumvitState=findViewById(R.id.stateGumvit);
