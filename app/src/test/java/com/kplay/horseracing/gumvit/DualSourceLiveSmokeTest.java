@@ -2,7 +2,6 @@ package com.kplay.horseracing.gumvit;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.json.JSONArray;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -31,8 +30,8 @@ public class DualSourceLiveSmokeTest {
                 KraRaceParser.raceExists(w,date,region,raceNo));
         Document r=Jsoup.connect("https://race.kra.co.kr/chulmainfo/Riding.do?Act=02&Sub=3&meet="+meet(region))
                 .userAgent("Mozilla/5.0").timeout(10000).get();
-        JSONArray entries=KraRaceParser.parseRiding(r,date,region,raceNo);
-        return entries.length();
+        java.util.List<KraRaceParser.Entry> entries=KraRaceParser.parseRiding(r,date,region,raceNo);
+        return entries.size();
     }
 
     private void assertDual(String date,String region,int raceNo)throws Exception{
