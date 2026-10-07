@@ -317,3 +317,5 @@ build.gradle/workflow/index.html: v6.0.0 identity.
 v6 isolated batch build trigger. Release status remains NOT_VERIFIED until blocking CI completes.
 
 - 69ed0a40: 실제 buildPegasusInput 경로에 validated HIST prior 주입 누락을 blocking test가 발견하여 수정. UI-only 연결 금지 계약 확인.
+
+- v6 회귀감사: T5 자동분석 금지 테스트는 기존 noop 함수 정의 자체를 오탐하므로 호출 유무를 검사하도록 테스트 교정. 실제 T5 입력 동작은 변경하지 않음.
