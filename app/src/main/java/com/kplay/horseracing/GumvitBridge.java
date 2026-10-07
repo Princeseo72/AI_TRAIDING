@@ -250,11 +250,11 @@ public class GumvitBridge {
             boolean parser=identity&&table!=null&&entries.size()>=3;
             String body=d.body()==null?d.text():d.body().text();
             out.put("gumvitHttp",true).put("gumvitParser",parser).put("gumvitRunnerRows",entries.size())
-               .put("premiumRestrictionPresent",body.contains("이용권한이 없습니다"))
+               .put("publicEntryTableOnly",true)
                .put("entryTablePresent",table!=null).put("tableCount",d.select("table").size())
                .put("pageTitle",d.title()).put("finalUrl",d.location())
                .put("canary","2026-10-03|제주|1R").put("duplicateResultLookup",false)
-               .put("preRaceSourcePolicy","VISIBLE_ENTRY_TABLE + KRA_CHANGE; PREMIUM_RESTRICTION_IGNORED; RESULT_DETAIL_POST_RACE_ONLY");
+               .put("preRaceSourcePolicy","PUBLIC_CHULMA_DETAIL_ENTRY_TABLE_ONLY + KRA_CHANGE; RESULT_DETAIL_POST_RACE_ONLY");
             boolean modules=true;try{Class.forName("com.kplay.horseracing.gumvit.GumvitPageParser");Class.forName("com.kplay.horseracing.gumvit.KraRaceParser");Class.forName("com.kplay.horseracing.gumvit.ScratchDetector");}catch(Throwable x){modules=false;}
             out.put("modules",modules).put("ok",parser&&modules);
             if(!parser)out.put("error","검빛 HTTP 응답 내 visible 출전마 table parser 실패");
