@@ -97,7 +97,7 @@ final class ScratchDetector {
                 String text = compact(tr.text());
                 if (text.contains("마명") && text.contains("경주") &&
                         (text.contains("출전번호") || text.contains("번호")) &&
-                        (text.contains("사유") || text.contains("조교사"))) {
+                        (text.contains("사유") || text.contains("조교사") || text.contains("기수"))) {
                     header = tr;
                     break;
                 }
