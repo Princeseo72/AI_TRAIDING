@@ -154,8 +154,29 @@ function mlPanel(){
 }
 function verifyAfterAnalysis(){if(!S.result)return toast('분석 결과가 없습니다.');try{const expected=JSON.stringify(S.horses.map(h=>h.number)),v=JSON.parse(AndroidRace.verifyRace(S.race.date,S.race.region,S.race.number,expected));S.postVerify=v;if(v.verified)toast(`검빛 대조 완료 · 출전 ${v.activeCount}두`);else toast(v.error||'검빛 대조 실패')}catch(e){S.postVerify={verified:false,error:String(e.message||e)}}render()}
 function actualTop3(){return (S.postRaceResult?.finishers||[]).slice().sort((a,b)=>a.rank-b.rank).slice(0,3).map(x=>+x.number)}
-function comparePredictions(){if(!S.postRaceResult||!S.result)return '';const a=actualTop3(),r=(S.result.rolePrediction||[]).map(x=>x.horseNumber),o=(S.result.oddsPrediction||[]).map(x=>x.horseNumber);const row=(name,p)=>`<tr><td>${name}</td>${p.map((n,i)=>`<td class="${n===a[i]?'good':'bad'}">${n}번 ${n===a[i]?'✓':'✕'}</td>`).join('')}</tr>`;return `<section class="card"><h2>예측 vs 실제</h2><div class="tableWrap compactResult"><table><thead><tr><th>구분</th><th>1착 (${a[0]||'-'})</th><th>2착 (${a[1]||'-'})</th><th>3착 (${a[2]||'-'})</th></tr></thead><tbody>${row('역할형',r)}${row('배당형',o)}</tbody></table></div></section>`}
-function outcomeView(){const o=S.postRaceResult;if(!o)return '';const top=(o.finishers||[]).slice(0,5),p=o.payouts||{},f=S.result?.finalCombinations||{};return `<section class="card"><div class="row spread"><h2>검빛 경주후 결과</h2><span class="good">✓ 확정 결과 저장</span></div><div class="row">${top.map(x=>`<span class="resultChip"><b>${x.rank}착 ${x.number}번</b> ${esc(x.name)}</span>`).join('')}</div><div class="tableWrap compactResult"><table><thead><tr><th>승식</th><th>실제조합</th><th>배당</th><th>최종8 적중</th></tr></thead><tbody>${Object.entries(p).filter(([k])=>OPTIONAL.includes(k)).map(([k,v])=>`<tr><td>${POOL_LABELS[k]}</td><td><b>${esc(v.key)}</b></td><td>${v.odds}</td><td>${(f[k]||[]).some(x=>x.key===v.key)?'<span class="good">적중</span>':'<span class="sub">미적중</span>'}</td></tr>`).join('')}</tbody></table></div></section>${comparePredictions()}`}
+function comparePredictions(){
+  if(!S.postRaceResult||!S.pegasusResult?.ok)return '';
+  const a=actualTop3(),p=S.pegasusResult;
+  const market=(p.engineCompare?.market||[]).map(x=>x.horseNumber);
+  const fund=(p.engineCompare?.fundamental||[]).map(x=>x.horseNumber);
+  const final=(p.final123||[]).map(x=>x.horseNumber);
+  const row=(name,arr)=>`<tr><td>${name}</td>${[0,1,2].map(i=>{const n=arr[i];return `<td class="${n===a[i]?'good':'bad'}">${n||'-'}번 ${n===a[i]?'✓':'✕'}</td>`}).join('')}</tr>`;
+  return `<section class="card"><h2>예측 vs 실제</h2><div class="tableWrap compactResult"><table><thead><tr><th>구분</th><th>1착 (${a[0]||'-'})</th><th>2착 (${a[1]||'-'})</th><th>3착 (${a[2]||'-'})</th></tr></thead><tbody>${row('시장·배당',market)}${row('펀더멘털',fund)}${row('PEGASUS Final',final)}</tbody></table></div></section>`;
+}
+function closedLoopView(){
+  const c=S.closedLoop;if(!c?.ok)return '';
+  const stepSet=new Set(c.steps||[]);
+  const names=['결과 검증','지역 프로파일 갱신','Rating 갱신','Track Bias 상태 갱신','Drift 검사','Next-Race Feature Materialization'];
+  return `<section class="card"><div class="row spread"><h2>폐쇄루프 학습</h2><span class="good">다음 경주 준비 ${esc(c.materialization?.status||'READY_PARTIAL')}</span></div>
+    <div class="learningSteps">${names.map(x=>`<div class="log">${stepSet.has(x)?'✓':'!'} ${x}</div>`).join('')}</div>
+    <div class="sub">Drift ${esc(c.drift?.state||'미평가')} · Context ${esc(c.materialization?.contextVersion||'-')} · ${Number(c.durationMs||0).toFixed(1)}ms</div>
+  </section>`;
+}
+function outcomeView(){
+  const o=S.postRaceResult;if(!o)return '';
+  const top=(o.finishers||[]).slice(0,5),p=o.payouts||{},f=S.pegasusResult?.finalEight||{};
+  return `<section class="card"><div class="row spread"><h2>검빛 경주후 결과</h2><span class="good">✓ 확정 결과 저장</span></div><div class="row">${top.map(x=>`<span class="resultChip"><b>${x.rank}착 ${x.number}번</b> ${esc(x.name)}</span>`).join('')}</div><div class="tableWrap compactResult"><table><thead><tr><th>승식</th><th>실제조합</th><th>배당</th><th>최종8 적중</th></tr></thead><tbody>${Object.entries(p).filter(([k])=>OPTIONAL.includes(k)).map(([k,v])=>`<tr><td>${POOL_LABELS[k]}</td><td><b>${esc(v.key)}</b></td><td>${v.odds}</td><td>${(f[k]||[]).some(x=>x.key===v.key)?'<span class="good">적중</span>':'<span class="sub">미적중</span>'}</td></tr>`).join('')}</tbody></table></div></section>${comparePredictions()}${closedLoopView()}`;
+}
 function trainFromResult(){
   if(!S.savedId||!S.postRaceResult||!S.result||!window.RacingML||!window.AndroidStore)return;
   const started=performance.now();
@@ -181,7 +202,21 @@ function trainFromResult(){
     refreshMlStatus();
   }catch(e){S.lastTrainingMs=performance.now()-started;S.mlEvent={error:String(e.message||e),promotionReason:'ML 실패 - 기본 분석 유지'}}
 }
-function fetchRaceResult(silent=false){if(!S.savedId){if(!silent)toast('먼저 분석을 저장하거나 저장 기록을 불러오세요.');return false}try{const d=JSON.parse(AndroidRace.fetchRaceResult(S.race.date,S.race.region,S.race.number));if(!d.ok||!d.verified)throw new Error(d.error||'경주결과 미확정');const a=JSON.parse(AndroidStore.attachRaceResult(+S.savedId,JSON.stringify(d)));if(!a.ok)throw new Error(a.error||'경주결과 저장 실패');S.postRaceResult=d;trainFromResult();if(!silent)toast('착순·확정배당 대조 + ML 학습 완료');render();return true}catch(e){if(!silent)toast('경주결과 확인: '+(e.message||e));return false}}
+function fetchRaceResult(silent=false){
+  if(!S.savedId){if(!silent)toast('먼저 분석을 저장하거나 저장 기록을 불러오세요.');return false}
+  try{
+    const d=JSON.parse(AndroidRace.fetchRaceResult(S.race.date,S.race.region,S.race.number));
+    if(!d.ok||!d.verified)throw new Error(d.error||'경주결과 미확정');
+    const a=JSON.parse(AndroidStore.attachRaceResult(+S.savedId,JSON.stringify(d)));
+    if(!a.ok)throw new Error(a.error||'경주결과 저장 실패');
+    S.postRaceResult=d;
+    trainFromResult();
+    const loop=JSON.parse(AndroidStore.applyClosedLoopUpdate(+S.savedId));
+    S.closedLoop=loop.ok?loop:{ok:false,error:loop.error||'폐쇄루프 갱신 실패'};
+    if(!silent)toast(loop.ok?'결과대조·학습·다음 경주 준비 완료':'결과 저장 완료 · 폐쇄루프 일부 실패');
+    render();return true
+  }catch(e){if(!silent)toast('경주결과 확인: '+(e.message||e));return false}
+}
 function pegProb(v){return Number.isFinite(+v)?(100*(+v)).toFixed(1)+'%':'-'}
 function pegasusFinalView(){
   const p=S.pegasusResult;if(!p?.ok)return '<section class="card"><h2>PEGASUS 최종 예상</h2><span class="bad">최종 엔진 결과 없음</span></section>';
