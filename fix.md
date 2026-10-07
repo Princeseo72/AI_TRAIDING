@@ -238,3 +238,6 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 <!-- public-source full batch rerun -->
 
 <!-- rerun after regression fixture compile repair -->
+
+- FIX-006 root cause refinement: Gumvit uses nested layout tables; parser must select the innermost public runner table, never an outer layout/premium container.
+<!-- nested-table full batch -->
