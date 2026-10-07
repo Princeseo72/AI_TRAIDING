@@ -116,4 +116,13 @@ public class ScratchDetectorTest {
         assertFalse(numbers.contains(7));
     }
 
+    @Test public void gumvitPublicChangeBulletinExcludesHorseSeven(){
+        String h="<table><tr><th>경주</th><th>번호</th><th>마명</th><th>조교사</th><th>기수명</th></tr>"
+          +"<tr><td>3</td><td>7</td><td>제외마</td><td>조교사</td><td>기수</td></tr></table>";
+        org.jsoup.nodes.Document d=org.jsoup.Jsoup.parse(h);
+        java.util.Set<Integer> x=ScratchDetector.changeScratchNumbers(d,null,null,3);
+        org.junit.Assert.assertTrue(x.contains(7));
+        org.junit.Assert.assertFalse(x.contains(6));
+    }
+
 }
