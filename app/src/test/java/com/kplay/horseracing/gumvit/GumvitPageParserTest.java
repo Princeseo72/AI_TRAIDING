@@ -77,4 +77,17 @@ public class GumvitPageParserTest {
         assertFalse(GumvitPageParser.identityMatches(d,"2026-10-05","서울",1));
     }
 
+    @Test public void restrictedPremiumMessageDoesNotInvalidateVisibleEntryTable(){
+        String html="<html><head><title>제주 1경주 출마표(인기도) [10.03]</title></head><body>"
+          +"<div>1경주 2026-10-03 (토) 제주 경마장</div>"
+          +"<table><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th><th>인기도</th></tr>"
+          +"<tr><td>1</td><td>적통자</td><td>4전 (0/0)</td><td>윤호상</td><td>김한남</td><td>19</td></tr>"
+          +"<tr><td>2</td><td>태백의진</td><td>7전 (0/0)</td><td>김대연</td><td>곽석</td><td>0</td></tr></table>"
+          +"<div>이용권한이 없습니다. 상품구매후 이용해주세요.</div></body></html>";
+        Document d=Jsoup.parse(html,"https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=1&type=6");
+        assertTrue(GumvitPageParser.identityMatches(d,"2026-10-03","제주",1));
+        java.util.List<GumvitPageParser.Entry> e=GumvitPageParser.parseEntries(d);
+        assertEquals(2,e.size()); assertEquals("적통자",e.get(0).name); assertEquals("김한남",e.get(0).jockey);
+    }
+
 }
