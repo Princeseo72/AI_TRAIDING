@@ -223,3 +223,5 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 <!-- ALL-GO batch integration gate -->
 
 <!-- ALL-GO compile repair rerun -->
+
+<!-- ALL-GO finite-rating rerun -->
