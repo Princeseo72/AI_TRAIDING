@@ -2,7 +2,7 @@
 'use strict';
 const POOLS=['WIN','QUINELLA','EXACTA','TRIO','TRIFECTA'];
 const CFG={currentShareWeight:.45,lmiWeight:.30,divergenceWeight:.15,structureWeight:.08,popularityWeight:.02};
-const BASE_ML={share:.32,lmi:.24,crossPool:.20,popularity:.10,stability:.08,structure:.06};
+const BASE_ML={share:.24,lmi:.16,crossPool:.13,popularity:.07,stability:.06,structure:.05,horseRating:.09,jockeyRating:.05,trainerRating:.04,regionalPrior:.05,historicalPrior:.06};
 const SCORE_NAMES=['DarkHorseScore','FavoriteScore','AbilityScore','WinScore','Place2Score','Place3Score'];
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number(v);
@@ -25,9 +25,20 @@ function learnedWeights(input){return weightMatrix(input?.learningModel?.weights
 function learnedContribution(f,family){
   const w=(f.learningWeights||weightMatrix())[family]||BASE_ML;
   const nl=clamp(f.winLmi/(1+Math.abs(f.winLmi)),-1,1),div=clamp(f.crossPoolDivergence,-1,1);
-  return w.share*f.winEvidence+w.lmi*nl+w.crossPool*div+w.popularity*f.popularityPrior+w.stability*f.stability+w.structure*f.structureEvidence;
+  return w.share*f.winEvidence+w.lmi*nl+w.crossPool*div+w.popularity*f.popularityPrior+w.stability*f.stability+w.structure*f.structureEvidence
+    +(w.horseRating||0)*(f.horseRatingPrior||0)+(w.jockeyRating||0)*(f.jockeyRatingPrior||0)+(w.trainerRating||0)*(f.trainerRatingPrior||0)
+    +(w.regionalPrior||0)*(f.regionalPrior||0)+(w.historicalPrior||0)*(f.historicalPrior||0);
 }
-function buildFeatures(input,universe,win,analyses,popularity){const winBy=new Map(win.rows.map(r=>[+r.key,r])),maxShare=Math.max(...win.rows.map(r=>r.q5),1e-9),r20=rankMap(win.rows,'q20'),r5=rankMap(win.rows,'q5'),combo={};universe.forEach(h=>combo[h]={sum:0,late:0,count:0,lead:0,pools:new Set()});for(const p of POOLS.slice(1)){const pa=analyses[p];if(pa.status!=='OK')continue;const mq=Math.max(...pa.rows.map(r=>r.q5),1e-9),ml=Math.max(...pa.rows.map(r=>Math.abs(r.lmi)),1e-9);pa.rows.forEach(row=>row.horses.forEach((h,idx)=>{if(!combo[h])return;combo[h].sum+=row.q5/mq;combo[h].late+=Math.max(0,clamp(row.lmi/ml,-1,1));combo[h].count++;combo[h].pools.add(p);if((p==='EXACTA'||p==='TRIFECTA')&&idx===0)combo[h].lead+=row.q5/mq}))}const out={},lw=learnedWeights(input);universe.forEach((h,i)=>{const w=winBy.get(h),c=combo[h],pop=Number(popularity[i]),popularityPrior=Number.isFinite(pop)&&pop>0?clamp(1/pop,0,1):0,comboEvidence=c.count?clamp(.55*c.sum/c.count+.35*c.late/c.count+.10*c.lead/Math.max(1,c.count),0,1):0,winEvidence=(w?.q5||0)/maxShare,winLmi=w?.lmi||0,stability=1-clamp(Math.abs(winLmi)/(1+Math.abs(winLmi)),0,1),cross=c.count?comboEvidence-winEvidence:0;out[h]={horseNumber:h,winShareT20:w?.q20||0,winShareT5:w?.q5||0,winLmi,winRankT20:r20.get(h)||999,winRankT5:r5.get(h)||999,shareMomentum:(w?.q5||0)-(w?.q20||0),oddsCompression:w&&w.q20>0?(w.q5-w.q20)/w.q20:0,crossPoolDivergence:cross,comboEvidence,structureEvidence:clamp(c.pools.size/4,0,1),directionalLeadEvidence:clamp(c.lead/Math.max(1,c.count),0,1),popularityPrior,recordPrior:0,jockeyPrior:0,trainerPrior:0,learnedBias1st:0,learnedBias2nd:0,learnedBias3rd:0,stability,underRecognition:clamp((r5.get(h)||universe.length)/universe.length-popularityPrior,0,1),winEvidence,learningWeights:lw}});return out}
+function buildFeatures(input,universe,win,analyses,popularity){const winBy=new Map(win.rows.map(r=>[+r.key,r])),maxShare=Math.max(...win.rows.map(r=>r.q5),1e-9),r20=rankMap(win.rows,'q20'),r5=rankMap(win.rows,'q5'),combo={};universe.forEach(h=>combo[h]={sum:0,late:0,count:0,lead:0,pools:new Set()});for(const p of POOLS.slice(1)){const pa=analyses[p];if(pa.status!=='OK')continue;const mq=Math.max(...pa.rows.map(r=>r.q5),1e-9),ml=Math.max(...pa.rows.map(r=>Math.abs(r.lmi)),1e-9);pa.rows.forEach(row=>row.horses.forEach((h,idx)=>{if(!combo[h])return;combo[h].sum+=row.q5/mq;combo[h].late+=Math.max(0,clamp(row.lmi/ml,-1,1));combo[h].count++;combo[h].pools.add(p);if((p==='EXACTA'||p==='TRIFECTA')&&idx===0)combo[h].lead+=row.q5/mq}))}const out={},lw=learnedWeights(input);universe.forEach((h,i)=>{const w=winBy.get(h),c=combo[h],pop=Number(popularity[i]),popularityPrior=Number.isFinite(pop)&&pop>0?clamp(1/pop,0,1):0,comboEvidence=c.count?clamp(.55*c.sum/c.count+.35*c.late/c.count+.10*c.lead/Math.max(1,c.count),0,1):0,winEvidence=(w?.q5||0)/maxShare,winLmi=w?.lmi||0,stability=1-clamp(Math.abs(winLmi)/(1+Math.abs(winLmi)),0,1),cross=c.count?comboEvidence-winEvidence:0;out[h]={horseNumber:h,winShareT20:w?.q20||0,winShareT5:w?.q5||0,winLmi,winRankT20:r20.get(h)||999,winRankT5:r5.get(h)||999,shareMomentum:(w?.q5||0)-(w?.q20||0),oddsCompression:w&&w.q20>0?(w.q5-w.q20)/w.q20:0,crossPoolDivergence:cross,comboEvidence,structureEvidence:clamp(c.pools.size/4,0,1),directionalLeadEvidence:clamp(c.lead/Math.max(1,c.count),0,1),popularityPrior,
+recordPrior:Number(input?.fundamentalPriors?.[h]?.recordPrior)||0,
+jockeyPrior:Number(input?.fundamentalPriors?.[h]?.jockeyPrior)||0,
+trainerPrior:Number(input?.fundamentalPriors?.[h]?.trainerPrior)||0,
+horseRatingPrior:Number(input?.contextSignals?.[h]?.horseRatingPrior)||0,
+jockeyRatingPrior:Number(input?.contextSignals?.[h]?.jockeyRatingPrior)||0,
+trainerRatingPrior:Number(input?.contextSignals?.[h]?.trainerRatingPrior)||0,
+regionalPrior:Number(input?.contextSignals?.[h]?.regionalPrior)||0,
+historicalPrior:Number(input?.contextSignals?.[h]?.historicalPrior)||0,
+learnedBias1st:0,learnedBias2nd:0,learnedBias3rd:0,stability,underRecognition:clamp((r5.get(h)||universe.length)/universe.length-popularityPrior,0,1),winEvidence,learningWeights:lw}});return out}
 function scoreFeatures(f){
   const nl=clamp(f.winLmi/(1+Math.abs(f.winLmi)),-1,1),mom=clamp(f.shareMomentum*10,-1,1),div=clamp(f.crossPoolDivergence,-1,1);
   const l={};SCORE_NAMES.forEach(k=>l[k]=learnedContribution(f,k));
