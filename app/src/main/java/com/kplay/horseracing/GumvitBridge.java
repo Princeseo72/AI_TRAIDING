@@ -174,6 +174,28 @@ public class GumvitBridge {
         return ScratchDetector.resultScratchNumbers(doc);
     }
 
+    private java.util.Map<Integer,JSONObject> gumvitPublicAbility(String date,String region,int raceNo,String type){
+        java.util.Map<Integer,JSONObject> out=new java.util.HashMap<>();
+        try{
+            String u="https://www.gumvit.com/statv40/daebak_all.html?loc="+code(region)+"&m_date="+date+"&race_no="+raceNo+"&type="+type;
+            Document d=getPrimary(u);
+            Pattern rec=Pattern.compile("(\\d+)\\s*전\\s*\\(\\s*(\\d+)\\s*/\\s*(\\d+)\\s*\\)");
+            for(Element tr:d.select("tr")){
+                String txt=tr.text().replace("\u00A0"," ").trim(); Matcher rm=rec.matcher(txt);
+                Elements td=tr.select("td"); if(td.size()<2||!td.get(0).text().trim().matches("\\d{1,2}")||!rm.find())continue;
+                int no=Integer.parseInt(td.get(0).text().trim()); if(no<1||no>30)continue;
+                JSONObject x=new JSONObject().put("record",rm.group(1)+"전 ("+rm.group(2)+"/"+rm.group(3)+")")
+                    .put("starts",Integer.parseInt(rm.group(1))).put("wins",Integer.parseInt(rm.group(2))).put("seconds",Integer.parseInt(rm.group(3)))
+                    .put("source","GUMVIT_DAEBAK_PUBLIC");
+                Matcher pct=Pattern.compile("([0-9]+(?:\\.[0-9]+)?)%").matcher(txt); if(pct.find())x.put("placeRate",Double.parseDouble(pct.group(1))/100.0);
+                java.util.List<Double> nums=new java.util.ArrayList<>(); Matcher nm=Pattern.compile("(?<![\\d.])([0-9]{1,3}(?:\\.[0-9]+))(?![\\d.])").matcher(txt);while(nm.find())try{nums.add(Double.parseDouble(nm.group(1)));}catch(Exception ignored){}
+                if(nums.size()>=3){x.put("early",nums.get(nums.size()-3));x.put("closing",nums.get(nums.size()-2));x.put("speed",nums.get(nums.size()-1));}
+                out.put(no,x);
+            }
+        }catch(Exception ignored){}
+        return out;
+    }
+
     private JSONObject fetch(String date,String region,int raceNo)throws Exception{
         String ckey=cacheKey(date,region,raceNo); long now=System.currentTimeMillis();
         synchronized(RACE_CACHE){
@@ -205,10 +227,14 @@ public class GumvitBridge {
         Set<Integer> resultScratches=new HashSet<>(gumvitScratches);
         resultScratches.addAll(kraScratches);
         java.util.List<GumvitPageParser.Entry> entries=GumvitPageParser.parseEntries(doc);
+        String selectedType="6";try{java.util.regex.Matcher tm=Pattern.compile("[?&]type=([^&]+)").matcher(url);if(tm.find())selectedType=tm.group(1);}catch(Exception ignored){}
+        java.util.Map<Integer,JSONObject> ability=gumvitPublicAbility(date,region,raceNo,selectedType);
         JSONArray horses=new JSONArray(),excluded=new JSONArray();
         for(GumvitPageParser.Entry e:entries){
             int no=e.number; boolean resultScratch=resultScratches.contains(no),active=!e.entryExcluded&&!resultScratch;
-            JSONObject h=new JSONObject().put("number",no).put("name",e.name).put("record",e.record)
+            JSONObject ab=ability.get(no);String rec=e.record==null?"":e.record.trim();if((rec.isEmpty()||rec.matches("전\\s*\\(\\s*/\\s*\\)"))&&ab!=null)rec=ab.optString("record","");
+            JSONObject h=new JSONObject().put("number",no).put("name",e.name).put("record",rec)
+                    .put("recordSource",ab!=null?"GUMVIT_DAEBAK_PUBLIC":"GUMVIT_ENTRY").put("ability",ab==null?JSONObject.NULL:ab)
                     .put("trainer",e.trainer).put("jockey",e.jockey).put("active",active).put("excluded",!active)
                     .put("excludeSource",resultScratch?(gumvitScratches.contains(no)?"GUMVIT_CHANGE":(kraScratches.contains(no)?"KRA_CHANGE":"CHANGE_STATUS")):(e.entryExcluded?"ENTRY_STATUS":""))
                     .put("expert",e.expert).put("popularity",e.popularity);
