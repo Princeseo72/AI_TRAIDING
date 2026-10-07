@@ -44,14 +44,34 @@ final class GumvitPageParser {
         return loc.contains("m_date="+date)||loc.contains("racedate="+date);
     }
 
-    static boolean identityMatches(Document doc,String date,String region,int raceNo){
-        if(doc==null||raceNo!=actualRaceNo(doc)||!regionMatches(doc,region))return false;
+    private static boolean requestedRaceMatchesLocation(Document doc,int raceNo){
+        if(doc==null||raceNo<1)return false;
+        String loc=doc.location()==null?"":doc.location();
+        return loc.contains("race_no="+raceNo)||loc.contains("race="+raceNo);
+    }
+
+    static String resolvedDate(Document doc,String requestedDate){
         String parsed=actualDate(doc);
-        if(date.equals(parsed))return true;
-        // Gumvit can omit/alter the visible date for Android/mobile UA. In that case,
-        // accept only when the response still belongs to the exact requested-date URL
-        // AND contains the real popularity entry table. Never accept a different parsed date.
-        return parsed.isEmpty() && requestedDateMatchesLocation(doc,date) && findEntryTable(doc)!=null;
+        return parsed.isEmpty()&&requestedDateMatchesLocation(doc,requestedDate)?requestedDate:parsed;
+    }
+
+    static int resolvedRaceNo(Document doc,int requestedRaceNo){
+        int parsed=actualRaceNo(doc);
+        return parsed<0&&requestedRaceMatchesLocation(doc,requestedRaceNo)?requestedRaceNo:parsed;
+    }
+
+    static boolean identityMatches(Document doc,String date,String region,int raceNo){
+        if(doc==null||!regionMatches(doc,region)||findEntryTable(doc)==null)return false;
+        String parsedDate=actualDate(doc);
+        int parsedRace=actualRaceNo(doc);
+        // A visible value, when present, is authoritative and must never disagree.
+        if(!parsedDate.isEmpty()&&!date.equals(parsedDate))return false;
+        if(parsedRace>=0&&raceNo!=parsedRace)return false;
+        // Gumvit's rendered Android/anonymous response can omit visible date/race labels.
+        // Only recover missing identity from the exact response URL, never from a guess.
+        boolean dateOk=date.equals(parsedDate)||(parsedDate.isEmpty()&&requestedDateMatchesLocation(doc,date));
+        boolean raceOk=raceNo==parsedRace||(parsedRace<0&&requestedRaceMatchesLocation(doc,raceNo));
+        return dateOk&&raceOk;
     }
 
     static Element findEntryTable(Document doc){
