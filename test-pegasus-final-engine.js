@@ -40,4 +40,8 @@ const sameLateB=E.analyze({...input,pools:{WIN:{T20:[{key:'1',odds:2},{key:'2',o
 assert(Math.abs(sameLateA.market.p1['1']-sameLateB.market.p1['1'])>1e-4,'same T5 with different T20 must not collapse to same market probability');
 assert(E.parseRecord('10전 3/1').status==='READY','record without parentheses must parse');
 assert(E.parseRecord('').status==='PENDING','blank record must not masquerade as zero-start history');
+const histAbility={...input,horses:input.horses.map((h,i)=>({...h,record:'',ability:{starts:10,wins:i===3?4:0,seconds:i===3?2:0,speed:i===3?92:40,early:50,closing:i===3?90:40,source:'GUMVIT_DAEBAK_PUBLIC'}}))};
+const ha=E.analyze(histAbility);
+assert(ha.fundamental.evidence['4'].ability.speed>.9,'public historical ability not consumed');
+assert(ha.fundamental.p1['4']>ha.fundamental.p1['3'],'historical ability must change fundamental ordering');
 console.log('PEGASUS FINAL ENGINE TESTS PASSED');
