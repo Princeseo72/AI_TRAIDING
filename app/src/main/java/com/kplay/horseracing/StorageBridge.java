@@ -146,6 +146,59 @@ public class StorageBridge {
         }
     }
 
+    private JSONObject queryLearningModel(SQLiteDatabase db, String region) throws Exception {
+        String sql = "SELECT model_version,region,sample_count,weights_json,metrics_json,status,created_at FROM ml_models WHERE region=? AND status IN ('ACTIVE','TRAINING','CANDIDATE') ORDER BY id DESC LIMIT 1";
+        try (Cursor c = db.rawQuery(sql, new String[]{region})) {
+            if (!c.moveToFirst()) return null;
+            return new JSONObject()
+                    .put("modelVersion", c.getString(0)).put("region", c.getString(1))
+                    .put("sampleCount", c.getInt(2)).put("weights", new JSONObject(c.getString(3)))
+                    .put("metrics", new JSONObject(c.getString(4))).put("status", c.getString(5))
+                    .put("createdAt", c.getString(6));
+        }
+    }
+
+    @JavascriptInterface
+    public String getLearningState(String region) {
+        try {
+            SQLiteDatabase db = helper.getReadableDatabase();
+            JSONObject globalTraining = queryLearningModel(db, "GLOBAL");
+            JSONObject regionalTraining = "GLOBAL".equals(region) ? null : queryLearningModel(db, region);
+            return new JSONObject().put("ok", true)
+                    .put("globalTraining", globalTraining == null ? JSONObject.NULL : globalTraining)
+                    .put("regionalTraining", regionalTraining == null ? JSONObject.NULL : regionalTraining)
+                    .toString();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    private JSONObject rollingMetrics(SQLiteDatabase db, int limit) throws Exception {
+        String sql = "SELECT e.target_json FROM ml_training_examples e WHERE e.trained_at IS NOT NULL ORDER BY e.id DESC LIMIT ?";
+        JSONObject sums = new JSONObject();
+        int count = 0;
+        try (Cursor c = db.rawQuery(sql, new String[]{String.valueOf(limit)})) {
+            while (c.moveToNext()) {
+                JSONObject j = new JSONObject(c.isNull(0) ? "{}" : c.getString(0));
+                Iterator<String> keys = j.keys();
+                while (keys.hasNext()) {
+                    String k = keys.next();
+                    if (!j.has(k)) continue;
+                    double v = j.optDouble(k, Double.NaN);
+                    if (Double.isFinite(v)) sums.put(k, sums.optDouble(k, 0) + v);
+                }
+                count++;
+            }
+        }
+        JSONObject out = new JSONObject().put("count", count);
+        Iterator<String> keys = sums.keys();
+        while (keys.hasNext()) {
+            String k = keys.next();
+            out.put(k, count == 0 ? 0 : sums.optDouble(k, 0) / count);
+        }
+        return out;
+    }
+
     @JavascriptInterface
     public String getMlStatus(String region) {
         long start = System.nanoTime();
@@ -153,6 +206,8 @@ public class StorageBridge {
             SQLiteDatabase db = helper.getReadableDatabase();
             JSONObject global = queryModel(db, "GLOBAL");
             JSONObject regional = queryModel(db, region);
+            JSONObject globalTraining = queryLearningModel(db, "GLOBAL");
+            JSONObject regionalTraining = queryLearningModel(db, region);
             int examples = count(db, "SELECT COUNT(*) FROM ml_training_examples WHERE trained_at IS NOT NULL", null);
             int regionalModels = count(db, "SELECT COUNT(*) FROM ml_models WHERE region=?", new String[]{region});
             JSONObject last = null;
@@ -165,10 +220,15 @@ public class StorageBridge {
                             .put("promoted", c.getInt(5) == 1).put("reason", c.getString(6)).put("createdAt", c.getString(7));
                 }
             }
+            JSONObject cumulative = globalTraining == null ? new JSONObject().put("verified", examples) : globalTraining.optJSONObject("metrics");
             return new JSONObject().put("ok", true)
                     .put("global", global == null ? JSONObject.NULL : global)
                     .put("regional", regional == null ? JSONObject.NULL : regional)
+                    .put("globalTraining", globalTraining == null ? JSONObject.NULL : globalTraining)
+                    .put("regionalTraining", regionalTraining == null ? JSONObject.NULL : regionalTraining)
                     .put("trainedExamples", examples).put("regionalModels", regionalModels)
+                    .put("rolling20", rollingMetrics(db, 20))
+                    .put("cumulative", cumulative == null ? new JSONObject() : cumulative)
                     .put("lastEvent", last == null ? JSONObject.NULL : last)
                     .put("durationMs", (System.nanoTime() - start) / 1_000_000.0).toString();
         } catch (Exception e) {
@@ -179,6 +239,83 @@ public class StorageBridge {
     private int count(SQLiteDatabase db, String sql, String[] args) {
         try (Cursor c = db.rawQuery(sql, args)) {
             return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    private void persistTrainingCandidate(SQLiteDatabase db, long raceId, long analysisId, JSONObject training) throws Exception {
+        if (training == null) return;
+        JSONObject candidate = training.optJSONObject("candidate");
+        if (candidate == null) return;
+        String from = training.optString("modelFrom", candidate.optString("modelVersion"));
+        String to = candidate.optString("modelVersion", from);
+        boolean promoted = training.optBoolean("promoted", false);
+        String status = candidate.optString("status", promoted ? "ACTIVE" : "TRAINING");
+
+        ContentValues ev = new ContentValues();
+        ev.put("model_from", from); ev.put("model_to", to); ev.put("race_id", raceId); ev.put("analysis_record_id", analysisId);
+        JSONObject delta = training.optJSONObject("weightDelta");
+        ev.put("weight_delta_json", delta == null ? "{}" : delta.toString());
+        JSONObject before = training.optJSONObject("beforeMetrics");
+        ev.put("before_metrics_json", before == null ? "{}" : before.toString());
+        JSONObject after = candidate.optJSONObject("metrics");
+        ev.put("after_metrics_json", after == null ? "{}" : after.toString());
+        ev.put("promoted", promoted ? 1 : 0); ev.put("reason", training.optString("promotionReason"));
+        db.insertOrThrow("ml_training_events", null, ev);
+
+        ContentValues mv = new ContentValues();
+        mv.put("model_version", to); mv.put("region", candidate.optString("region", "GLOBAL"));
+        mv.put("sample_count", candidate.optInt("sampleCount"));
+        mv.put("weights_json", candidate.optJSONObject("weights") == null ? "{}" : candidate.optJSONObject("weights").toString());
+        mv.put("metrics_json", after == null ? "{}" : after.toString());
+        mv.put("status", "REJECTED".equals(status) ? "ROLLED_BACK" : status);
+        db.insertWithOnConflict("ml_models", null, mv, SQLiteDatabase.CONFLICT_IGNORE);
+        if (promoted) {
+            db.execSQL("UPDATE ml_models SET status='ROLLED_BACK' WHERE region=? AND status='ACTIVE' AND model_version<>?",
+                    new Object[]{candidate.optString("region", "GLOBAL"), to});
+            db.execSQL("UPDATE ml_models SET status='ACTIVE' WHERE model_version=?", new Object[]{to});
+        }
+    }
+
+    @JavascriptInterface
+    public String recordTrainingBundle(long analysisId, String trainingJson) {
+        SQLiteDatabase db = null;
+        long start = System.nanoTime();
+        try {
+            JSONObject bundle = new JSONObject(trainingJson);
+            db = helper.getWritableDatabase();
+            db.beginTransaction();
+            long raceId;
+            try (Cursor c = db.rawQuery("SELECT r.id FROM analysis_records a LEFT JOIN races r ON r.race_date=a.race_date AND r.region=a.region AND r.race_number=a.race_number WHERE a.id=?",
+                    new String[]{String.valueOf(analysisId)})) {
+                if (!c.moveToFirst()) return error("분석 기록 없음");
+                raceId = c.isNull(0) ? 0 : c.getLong(0);
+            }
+            try (Cursor c = db.rawQuery("SELECT actual_result_json FROM ml_training_examples WHERE analysis_record_id=?",
+                    new String[]{String.valueOf(analysisId)})) {
+                if (c.moveToFirst() && !c.isNull(0)) return error("중복 학습 경주");
+            }
+
+            JSONObject actual = bundle.optJSONObject("actual");
+            JSONObject evaluation = bundle.optJSONObject("evaluation");
+            ContentValues ex = new ContentValues();
+            ex.put("actual_result_json", actual == null ? "{}" : actual.toString());
+            ex.put("target_json", evaluation == null ? "{}" : evaluation.toString());
+            ex.put("error_json", "{}");
+            ex.put("trained_at", String.valueOf(System.currentTimeMillis()));
+            db.update("ml_training_examples", ex, "analysis_record_id=?", new String[]{String.valueOf(analysisId)});
+
+            persistTrainingCandidate(db, raceId, analysisId, bundle.optJSONObject("globalTraining"));
+            persistTrainingCandidate(db, raceId, analysisId, bundle.optJSONObject("regionalTraining"));
+            db.setTransactionSuccessful();
+            return new JSONObject().put("ok", true)
+                    .put("durationMs", (System.nanoTime() - start) / 1_000_000.0)
+                    .put("globalPromoted", bundle.optJSONObject("globalTraining") != null && bundle.optJSONObject("globalTraining").optBoolean("promoted"))
+                    .put("regionalPromoted", bundle.optJSONObject("regionalTraining") != null && bundle.optJSONObject("regionalTraining").optBoolean("promoted"))
+                    .toString();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        } finally {
+            if (db != null && db.inTransaction()) db.endTransaction();
         }
     }
 
