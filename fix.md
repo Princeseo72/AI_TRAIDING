@@ -221,3 +221,5 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 - AG-010: L7 실제 Android device/emulator 메뉴 터치/재시작 복원 검증 전 DEVICE_PASS 금지.
 
 <!-- ALL-GO batch integration gate -->
+
+<!-- ALL-GO compile repair rerun -->
