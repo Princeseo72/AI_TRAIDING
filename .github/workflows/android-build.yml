@@ -41,6 +41,9 @@ jobs:
       - name: Run real scratch parser unit tests
         run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest
 
+      - name: Run excluded-runner JS boundary tests
+        run: node test-runner-guard.js
+
       - name: Run ML engine and schema tests
         run: node test-ml.js && node test-ml-schema.js && node test-result-learning.js
 
