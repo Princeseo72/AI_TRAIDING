@@ -175,12 +175,18 @@ public class StorageBridge {
         }
         int total = outcomes.length();
         JSONObject all = profileWindow(outcomes, total);
+        JSONArray year = new JSONArray();
+        java.time.LocalDate cutoff;
+        try { cutoff = java.time.LocalDate.parse(targetDate).minusYears(1); } catch(Exception ex){ cutoff=null; }
+        if(cutoff!=null)try (Cursor yc=db.rawQuery("SELECT race_date,result_json FROM race_outcomes WHERE region=? AND race_date<? AND race_date>=? ORDER BY race_date DESC,race_number DESC",new String[]{region,targetDate,cutoff.toString()})){while(yc.moveToNext())year.put(new JSONObject(yc.getString(1)));}
+        JSONObject recent1y = profileWindow(year, year.length());
         JSONObject recent100 = profileWindow(outcomes, Math.min(100, total));
         JSONObject recent20 = profileWindow(outcomes, Math.min(20, total));
         return new JSONObject()
                 .put("region", region)
                 .put("sampleCount", total)
                 .put("all", all)
+                .put("recent1y", recent1y)
                 .put("recent100", recent100)
                 .put("recent20", recent20)
                 .put("asOfDate", latest == null ? JSONObject.NULL : latest)
@@ -239,13 +245,18 @@ public class StorageBridge {
         try (Cursor c = db.rawQuery(
                 "SELECT model_version,metrics_json,feature_schema_version,created_at FROM champion_registry WHERE region IN (?, 'GLOBAL') AND alias='CHAMPION' ORDER BY CASE WHEN region=? THEN 0 ELSE 1 END,id DESC LIMIT 1",
                 new String[]{region, region})) {
-            if (!c.moveToFirst()) return new JSONObject().put("modelVersion", "BASELINE").put("status", "FALLBACK");
+            if (!c.moveToFirst()) return new JSONObject().put("modelVersion", "BASELINE").put("status", "FALLBACK").put("verified",false);
+            JSONObject metrics=new JSONObject(c.getString(1));
+            int samples=metrics.optInt("sampleCount",metrics.optInt("verified",metrics.optInt("count",0)));
+            boolean verified=samples>=20 && (metrics.has("logLoss")||metrics.has("brier")||metrics.has("top3HitRate"));
             return new JSONObject()
                     .put("modelVersion", c.getString(0))
-                    .put("metrics", new JSONObject(c.getString(1)))
+                    .put("metrics", metrics)
+                    .put("sampleCount",samples)
                     .put("featureSchemaVersion", c.getString(2))
                     .put("createdAt", c.getString(3))
-                    .put("status", "ACTIVE");
+                    .put("verified",verified)
+                    .put("status", verified?"ACTIVE":"UNVERIFIED");
         }
     }
 
@@ -256,12 +267,14 @@ public class StorageBridge {
             if (!c.moveToFirst()) return new JSONObject()
                     .put("sampleCount", 0).put("bias", new JSONObject())
                     .put("biasVersion", "TRACK-v1").put("status", "NO_SAME_DAY_SAMPLE");
+            JSONObject bias=new JSONObject(c.getString(1));
+            boolean hasFields=bias.has("gate")||bias.has("pace")||bias.has("rail")||bias.has("closing")||bias.has("horsePriors");
             return new JSONObject()
                     .put("sampleCount", c.getInt(0))
-                    .put("bias", new JSONObject(c.getString(1)))
+                    .put("bias", bias)
                     .put("biasVersion", c.getString(2))
                     .put("updatedAt", c.getString(3))
-                    .put("status", c.getInt(0) < 3 ? "LOW_SAMPLE" : "READY");
+                    .put("status", !hasFields?"INSUFFICIENT_FIELDS":(c.getInt(0)<3?"LOW_SAMPLE":"READY"));
         }
     }
 
