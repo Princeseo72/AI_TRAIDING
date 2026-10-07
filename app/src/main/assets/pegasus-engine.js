@@ -38,13 +38,13 @@ function fundamentalLayer(horses,context){
  for(const h of horses){
   const r=parseRecord(h.record),hasRecord=r.status==='READY'&&r.starts>0,starts=Math.max(1,r.starts),winRate=hasRecord?r.wins/starts:0,placeRate=hasRecord?(r.wins+r.places)/starts:0;
   const pop=Number(h.popularity),popPrior=Number.isFinite(pop)&&pop>0?1/pop:0;
-  const rating=ratingSignal(context,h),hp=context?.historicalPrior?.horsePriors?.[String(h.number)]??context?.historicalPrior?.horsePriors?.[h.number],hist=Number.isFinite(+hp)?clamp(+hp,0,1):0;
+  const rating=ratingSignal(context,h),ab=h.ability||{},ability=Number.isFinite(+ab.speed)?clamp(+ab.speed/100,0,1):0,early=Number.isFinite(+ab.early)?clamp(+ab.early/100,0,1):0,closing=Number.isFinite(+ab.closing)?clamp(+ab.closing/100,0,1):0,hp=context?.historicalPrior?.horsePriors?.[String(h.number)]??context?.historicalPrior?.horsePriors?.[h.number],hist=Number.isFinite(+hp)?clamp(+hp,0,1):0;
   const regional=Number(context?.regionalProfile?.horsePriors?.[String(h.number)]??context?.regionalProfile?.horsePriors?.[h.number]),reg=Number.isFinite(regional)?clamp(regional,0,1):0;
   const tb=Number(context?.trackBias?.horsePriors?.[String(h.number)]??context?.trackBias?.horsePriors?.[h.number]),track=Number.isFinite(tb)?clamp(tb,0,1):0;
-  const parts=[];if(hasRecord)parts.push([.38,winRate],[.18,placeRate]);if(rating.status==='READY')parts.push([.16,.5+.5*rating.value]);if(hist>0)parts.push([.14,hist]);if(reg>0)parts.push([.07,reg]);if(track>0)parts.push([.04,track]);if(popPrior>0)parts.push([.03,popPrior]);
+  const parts=[];if(hasRecord)parts.push([.30,winRate],[.14,placeRate]);if(ability>0)parts.push([.12,ability]);if(early>0)parts.push([.04,early]);if(closing>0)parts.push([.06,closing]);if(rating.status==='READY')parts.push([.16,.5+.5*rating.value]);if(hist>0)parts.push([.14,hist]);if(reg>0)parts.push([.07,reg]);if(track>0)parts.push([.04,track]);if(popPrior>0)parts.push([.03,popPrior]);
   const z=parts.reduce((s,x)=>s+x[0],0),base=z?parts.reduce((s,x)=>s+x[0]*x[1],0)/z:(1/Math.max(1,horses.length));
   raw[String(h.number)]=Math.max(EPS,base);
-  evidence[String(h.number)]={record:r,winRate,placeRate,popularityPrior:popPrior,rating,historicalPrior:hist,regionalPrior:reg,trackBiasPrior:track};
+  evidence[String(h.number)]={record:r,winRate,placeRate,ability:{speed:ability,early,closing,source:ab.source||h.recordSource||''},popularityPrior:popPrior,rating,historicalPrior:hist,regionalPrior:reg,trackBiasPrior:track};
  }
  const p1=normalize(raw);
  return{status:'AVAILABLE_FEATURES_ONLY',p1,rank:rankProb(p1),evidence,limitations:['5년 Hist 미연결 시 현재 출전표 전적/인기도/저장 Rating만 사용']};
