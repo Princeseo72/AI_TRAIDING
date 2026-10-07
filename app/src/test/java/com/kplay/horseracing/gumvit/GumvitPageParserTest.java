@@ -91,4 +91,14 @@ public class GumvitPageParserTest {
         assertEquals(2,e.size()); assertEquals("적통자",e.get(0).name); assertEquals("김한남",e.get(0).jockey);
     }
 
+    @Test public void nestedLayoutChoosesInnerPublicRunnerTable(){
+        String h="<table><tr><td>layout<table><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th></tr>"
+          +"<tr><td>1</td><td>A</td><td>1전</td><td>T</td><td>J</td></tr><tr><td>2</td><td>B</td><td>2전</td><td>U</td><td>K</td></tr>"
+          +"</table></td></tr><tr><td>이용권한이 없습니다</td></tr></table>";
+        Document d=Jsoup.parse(h,"https://www.gumvit.com/statv40/chulma_detail.html?loc=J&m_date=2026-10-03&race_no=1&type=6");
+        org.jsoup.nodes.Element t=GumvitPageParser.findEntryTable(d);
+        assertNotNull(t); assertEquals(2,GumvitPageParser.parseEntries(d).size());
+        assertFalse(t.text().contains("이용권한이 없습니다"));
+    }
+
 }
