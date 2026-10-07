@@ -101,4 +101,19 @@ public class ScratchDetectorTest {
         assertTrue(ScratchDetector.changeScratchNumbers(Jsoup.parse(html), 2).isEmpty());
     }
 
+    @Test
+    public void kraWholeWeekTableFiltersByDateRegionAndRace() {
+        String html = "<html><body><table>"
+                + "<tr><th>지역</th><th>경주일자</th><th>경주번호</th><th>출전번호</th><th>마명</th><th>조교사</th><th>기수명</th><th>사유</th></tr>"
+                + "<tr><td>제주</td><td>2026/10/03</td><td>2</td><td>2</td><td>태흥산성</td><td>윤호상</td><td>김한남</td><td>왼 앞다리 절음</td></tr>"
+                + "<tr><td>서울</td><td>2026/10/04</td><td>1</td><td>5</td><td>벨로체</td><td>서인석</td><td>서승운</td><td>방마</td></tr>"
+                + "<tr><td>제주</td><td>2026/10/03</td><td>3</td><td>7</td><td>다른말</td><td>조교사</td><td>기수</td><td>절음</td></tr>"
+                + "</table></body></html>";
+        Set<Integer> numbers = ScratchDetector.changeScratchNumbers(Jsoup.parse(html), "2026-10-03", "제주", 2);
+        assertEquals(1, numbers.size());
+        assertTrue(numbers.contains(2));
+        assertFalse(numbers.contains(5));
+        assertFalse(numbers.contains(7));
+    }
+
 }
