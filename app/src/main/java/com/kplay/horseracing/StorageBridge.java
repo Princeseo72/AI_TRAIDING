@@ -693,6 +693,172 @@ public class StorageBridge {
         finally { if (db != null && db.inTransaction()) db.endTransaction(); }
     }
 
+    private JSONObject regionalProfileThrough(SQLiteDatabase db, String date, String region) throws Exception {
+        JSONArray outcomes = new JSONArray();
+        String latest = null;
+        try (Cursor c = db.rawQuery(
+                "SELECT race_date,result_json FROM race_outcomes WHERE region=? AND race_date<=? ORDER BY race_date DESC,race_number DESC LIMIT 2000",
+                new String[]{region, date})) {
+            while (c.moveToNext()) {
+                if (latest == null) latest = c.getString(0);
+                outcomes.put(new JSONObject(c.getString(1)));
+            }
+        }
+        int total = outcomes.length();
+        return new JSONObject()
+                .put("region", region).put("sampleCount", total)
+                .put("all", profileWindow(outcomes, total))
+                .put("recent100", profileWindow(outcomes, Math.min(100, total)))
+                .put("recent20", profileWindow(outcomes, Math.min(20, total)))
+                .put("asOfDate", latest == null ? JSONObject.NULL : latest)
+                .put("status", total < 20 ? "LOW_SAMPLE" : "READY")
+                .put("profileVersion", "REGIONAL-v1");
+    }
+
+    private void updateRegionalProfileState(SQLiteDatabase db, String date, String region, int raceNo, JSONObject result) throws Exception {
+        ContentValues ev = new ContentValues();
+        ev.put("region", region); ev.put("race_date", date); ev.put("race_number", raceNo);
+        ev.put("event_json", result.toString());
+        db.insert("regional_profile_events", null, ev);
+
+        JSONObject profile = regionalProfileThrough(db, date, region);
+        for (String window : new String[]{"ALL","RECENT100","RECENT20"}) {
+            JSONObject body = "ALL".equals(window) ? profile.optJSONObject("all") :
+                    ("RECENT100".equals(window) ? profile.optJSONObject("recent100") : profile.optJSONObject("recent20"));
+            ContentValues v = new ContentValues();
+            v.put("region", region); v.put("window_key", window);
+            v.put("sample_count", body == null ? 0 : body.optInt("count"));
+            v.put("profile_json", body == null ? "{}" : body.toString());
+            v.put("profile_version", "REGIONAL-v1"); v.put("as_of_date", date);
+            db.insertWithOnConflict("regional_profiles", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+        }
+    }
+
+    private JSONObject currentRating(SQLiteDatabase db, String type, String entity, String region) throws Exception {
+        try (Cursor c = db.rawQuery("SELECT mu,sigma FROM rating_state WHERE entity_type=? AND entity_id=? AND region=? LIMIT 1",
+                new String[]{type, entity, region})) {
+            if (c.moveToFirst()) return new JSONObject().put("mu", c.getDouble(0)).put("sigma", c.getDouble(1));
+        }
+        return new JSONObject().put("mu", 0.0).put("sigma", 1.0);
+    }
+
+    private void updateOneRating(SQLiteDatabase db, String date, String region, int raceNo, String type, String entity, double target) throws Exception {
+        if (entity == null || entity.trim().isEmpty()) return;
+        JSONObject before = currentRating(db, type, entity, region);
+        double oldMu = before.optDouble("mu", 0.0), oldSigma = before.optDouble("sigma", 1.0);
+        double delta = 0.08 * (target - 0.5);
+        double newMu = oldMu + delta;
+        double newSigma = Math.max(0.20, oldSigma * 0.995);
+        ContentValues v = new ContentValues();
+        v.put("entity_type", type); v.put("entity_id", entity); v.put("region", region);
+        v.put("mu", newMu); v.put("sigma", newSigma); v.put("rating_version", "RATING-INCREMENTAL-v1"); v.put("as_of_date", date);
+        db.insertWithOnConflict("rating_state", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+
+        ContentValues ev = new ContentValues();
+        ev.put("race_date", date); ev.put("region", region); ev.put("race_number", raceNo);
+        ev.put("entity_type", type); ev.put("entity_id", entity);
+        ev.put("before_json", before.toString());
+        ev.put("after_json", new JSONObject().put("mu", newMu).put("sigma", newSigma).put("delta", delta).toString());
+        db.insert("rating_events", null, ev);
+    }
+
+    private void updateRatingState(SQLiteDatabase db, String date, String region, int raceNo, JSONObject payload, JSONObject result) throws Exception {
+        JSONArray horses = payload.optJSONArray("horses"), finishers = result.optJSONArray("finishers");
+        if (horses == null || finishers == null || finishers.length() < 1) return;
+        JSONObject rankByNumber = new JSONObject();
+        for (int i = 0; i < finishers.length(); i++) {
+            JSONObject x = finishers.optJSONObject(i); if (x == null) continue;
+            rankByNumber.put(String.valueOf(x.optInt("number")), x.optInt("rank", i + 1));
+        }
+        int field = Math.max(2, horses.length());
+        for (int i = 0; i < horses.length(); i++) {
+            JSONObject h = horses.optJSONObject(i); if (h == null) continue;
+            int rank = rankByNumber.optInt(String.valueOf(h.optInt("number")), field);
+            double target = 1.0 - ((double)Math.max(0, rank - 1) / Math.max(1, field - 1));
+            updateOneRating(db, date, region, raceNo, "HORSE", h.optString("name"), target);
+            updateOneRating(db, date, region, raceNo, "JOCKEY", h.optString("jockey"), target);
+            updateOneRating(db, date, region, raceNo, "TRAINER", h.optString("trainer"), target);
+        }
+    }
+
+    private JSONObject recordDriftState(SQLiteDatabase db, String date, String region) throws Exception {
+        int samples = count(db, "SELECT COUNT(*) FROM race_outcomes WHERE region=? AND race_date<=?", new String[]{region, date});
+        String state = samples < 20 ? "INSUFFICIENT_SAMPLE" : "MONITORING_NO_VALIDATED_BASELINE";
+        JSONObject metrics = new JSONObject().put("verifiedOutcomes", samples).put("note",
+                samples < 20 ? "20경주 미만: 드리프트 판정 금지" : "검증된 시장대비 LogLoss 기준선 연결 전");
+        ContentValues v = new ContentValues();
+        v.put("region", region); v.put("race_date", date); v.put("detector", "ROLLING_GUARD-v1");
+        v.put("state", state); v.put("metrics_json", metrics.toString());
+        db.insert("drift_events", null, v);
+        return new JSONObject().put("state", state).put("metrics", metrics);
+    }
+
+    private JSONObject materializeNextRaceContext(SQLiteDatabase db, String date, String region, int raceNo) throws Exception {
+        long started = System.nanoTime();
+        JSONObject versions = versionContract(db);
+        JSONObject regional = regionalProfileThrough(db, date, region);
+        JSONObject champion = activeChampion(db, region);
+        JSONObject track = currentTrackBias(db, date, region);
+        String compactRegion = region.replace("부산경남", "BUSAN").replace("서울", "SEOUL").replace("제주", "JEJU");
+        String contextVersion = "CTX-" + date.replace("-", "") + "-" + compactRegion + "-R" + (raceNo + 1) + "-v1";
+        boolean histReady = !"HIST_PENDING".equals(versions.optString("histStatus", "HIST_PENDING"));
+        String status = histReady ? "READY" : "READY_PARTIAL";
+        JSONObject detail = new JSONObject()
+                .put("regionalProfile", regional).put("champion", champion).put("trackBias", track)
+                .put("histStatus", versions.optString("histStatus", "HIST_PENDING"));
+        ContentValues v = new ContentValues();
+        v.put("context_version", contextVersion); v.put("race_date", date); v.put("region", region); v.put("race_number", raceNo + 1);
+        v.put("status", status); v.put("duration_ms", (System.nanoTime() - started) / 1_000_000.0); v.put("detail_json", detail.toString());
+        db.insertWithOnConflict("feature_materialization_log", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+        return new JSONObject().put("contextVersion", contextVersion).put("status", status).put("detail", detail);
+    }
+
+    @JavascriptInterface
+    public String applyClosedLoopUpdate(long analysisId) {
+        SQLiteDatabase db = null; long started = System.nanoTime();
+        try {
+            db = helper.getWritableDatabase(); db.beginTransaction();
+            String date, region; int raceNo; JSONObject payload, result;
+            try (Cursor c = db.rawQuery(
+                    "SELECT a.race_date,a.region,a.race_number,a.payload_json,o.result_json FROM analysis_records a JOIN race_outcomes o ON o.analysis_record_id=a.id WHERE a.id=? LIMIT 1",
+                    new String[]{String.valueOf(analysisId)})) {
+                if (!c.moveToFirst()) return error("검증된 실제결과가 없습니다.");
+                date = c.getString(0); region = c.getString(1); raceNo = c.getInt(2);
+                payload = new JSONObject(c.getString(3)); result = new JSONObject(c.getString(4));
+            }
+            updateRegionalProfileState(db, date, region, raceNo, result);
+            updateRatingState(db, date, region, raceNo, payload, result);
+
+            JSONObject trackState = new JSONObject().put("status", "INSUFFICIENT_FIELDS")
+                    .put("note", "gate/pace/section feature materialization 전에는 Track Bias 수치 생성 금지");
+            ContentValues tv = new ContentValues();
+            tv.put("race_date", date); tv.put("region", region);
+            tv.put("sample_count", count(db, "SELECT COUNT(*) FROM race_outcomes WHERE region=? AND race_date=?", new String[]{region, date}));
+            tv.put("bias_json", trackState.toString()); tv.put("bias_version", "TRACK-v1");
+            db.insertWithOnConflict("track_bias_state", null, tv, SQLiteDatabase.CONFLICT_REPLACE);
+
+            JSONObject drift = recordDriftState(db, date, region);
+            JSONObject materialized = materializeNextRaceContext(db, date, region, raceNo);
+
+            ContentValues pm = new ContentValues();
+            pm.put("metric_scope", "CLOSED_LOOP"); pm.put("region", region); pm.put("metric_name", "update_ms");
+            pm.put("metric_value", (System.nanoTime() - started) / 1_000_000.0); pm.put("window_key", "LAST");
+            db.insert("performance_metrics", null, pm);
+
+            db.setTransactionSuccessful();
+            JSONArray steps = new JSONArray()
+                    .put("결과 검증").put("지역 프로파일 갱신").put("Rating 갱신")
+                    .put("Track Bias 상태 갱신").put("Drift 검사").put("Next-Race Feature Materialization");
+            return new JSONObject().put("ok", true).put("steps", steps)
+                    .put("drift", drift).put("materialization", materialized)
+                    .put("durationMs", (System.nanoTime() - started) / 1_000_000.0).toString();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        } finally {
+            if (db != null && db.inTransaction()) db.endTransaction();
+        }
+    }
+
     @JavascriptInterface
     public String healthCheck() {
         long start = System.nanoTime();
