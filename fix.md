@@ -231,3 +231,5 @@ FAIL/PENDING이 하나라도 있으면 원인과 다음 수정 대상을 함께 
 - Premium restriction text MUST NOT invalidate the visible entry table.
 - Production and live regression MUST share GumvitPageParser.parseEntries().
 - Android production UA/referrer live regression for 제주 2026-10-03 1R MUST parse exactly 10 runners before APK release.
+
+<!-- Android screenshot root-cause full batch -->
