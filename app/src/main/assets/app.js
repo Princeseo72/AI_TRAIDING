@@ -1,13 +1,13 @@
 const POOL_LABELS={WIN:'단승',QUINELLA:'복승',EXACTA:'쌍승',TRIO:'삼복승',TRIFECTA:'삼쌍승'};
 const OPTIONAL=['QUINELLA','EXACTA','TRIO','TRIFECTA'];
-const S={step:0,race:{date:new Date().toISOString().slice(0,10),region:'서울',number:1},horses:[],excludedHorses:[],pools:{},result:null,dirty:false,gumvit:{loading:false,source:'',error:'',verified:false},postVerify:null,postRaceResult:null,savedId:null,timer:null,processTimer:null,analysisEpoch:0,maintenance:null,mlStatus:null,mlEvent:null,lastAnalysisMs:0,lastLoadMs:0,lastTrainingMs:0};
+const S={step:0,race:{date:new Date().toISOString().slice(0,10),region:'서울',number:1},horses:[],excludedHorses:[],pools:{},result:null,dirty:false,gumvit:{loading:false,source:'',error:'',verified:false},postVerify:null,postRaceResult:null,savedId:null,timer:null,processTimer:null,analysisEpoch:0,maintenance:null,mlStatus:null,mlEvent:null,lastAnalysisMs:0,lastLoadMs:0,lastTrainingMs:0,preRaceContext:null,regionalProfile:null,contextVersion:null,dataFreshness:null};
 const steps=['경주 선택','20분 전 입력','5분 전 입력','연산 처리','최종 출력','저장 기록'];
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const pct=v=>Number.isFinite(v)?`${(v*100).toFixed(1)}%`:'-';
 function toast(t){const e=$('#toast');if(!e)return;e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2400)}
 function initPools(){S.pools={WIN:{T20:S.horses.map(h=>({key:String(h.number),odds:''})),T5:S.horses.map(h=>({key:String(h.number),odds:''}))}};OPTIONAL.forEach(p=>S.pools[p]={T20:[],T5:[]})}
 function clearRuntime(){clearTimeout(S.timer);clearInterval(S.processTimer);S.timer=null;S.processTimer=null}
-function resetRaceVerification(){clearRuntime();S.analysisEpoch++;S.horses=[];S.excludedHorses=[];S.pools={};S.result=null;S.postVerify=null;S.postRaceResult=null;S.savedId=null;S.mlEvent=null;S.dirty=false;S.gumvit={loading:false,source:'',error:'',verified:false}}
+function resetRaceVerification(){clearRuntime();S.analysisEpoch++;S.horses=[];S.excludedHorses=[];S.pools={};S.result=null;S.postVerify=null;S.postRaceResult=null;S.savedId=null;S.mlEvent=null;S.preRaceContext=null;S.regionalProfile=null;S.contextVersion=null;S.dataFreshness=null;S.dirty=false;S.gumvit={loading:false,source:'',error:'',verified:false}}
 function runnerGuardOk(){
   if(!window.RunnerGuard)return false;
   return RunnerGuard.validateNoExcludedLeak(S.pools,S.horses,S.excludedHorses).ok;
@@ -18,7 +18,43 @@ function can(i){if(i===0||i===5)return true;if(i===1)return S.gumvit.verified&&S
 function tabs(){const n=$('#tabs');n.innerHTML=steps.map((x,i)=>`<button data-i="${i}" ${!can(i)&&i!==S.step?'disabled':''} class="${S.step===i?'active':''}">${i+1}. ${x}</button>`).join('');n.querySelectorAll('button').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(can(i)||i===S.step){S.step=i;render()}})}
 function headerActions(){return `<div class="row"><button id="health" class="secondary">성능 재검증</button><button id="cleanup" class="secondary">데이터 정리</button><button id="exitApp" class="danger">종료</button></div>`}
 function render(){tabs();$('#statusBadge').textContent=S.gumvit.loading?'검빛 검증 중':S.postRaceResult?'경주결과/ML 확인':S.postVerify?.verified?'검증 완료':S.result?'분석 완료':S.dirty?'수정됨':'대기';$('#app').innerHTML=`<section class="card toolbar">${headerActions()}${S.maintenance?`<span class="sub">${esc(S.maintenance)}</span>`:''}</section>`+[raceView,t20View,t5View,processView,resultView,historyView][S.step]();bind()}
-function raceView(){const st=S.gumvit.loading?'<span class="warn">검빛에서 날짜·경주·출전마를 검증 중…</span>':S.gumvit.error?`<span class="bad">${esc(S.gumvit.error)}</span>`:S.gumvit.verified?`<span class="good">✓ ${esc(S.race.date)} ${S.race.number}R 검증 · 유효 출전 ${S.horses.length}두</span>`:'<span class="sub">검빛 실제 페이지와 날짜·경주번호가 일치해야 배당 입력이 활성화됩니다.</span>';return `<section class="card"><h2>경주 정보</h2><div class="grid g3"><div><label>날짜</label><input id="date" type="date" value="${S.race.date}"></div><div><label>지역</label><select id="region"><option>서울</option><option>부산경남</option><option>제주</option></select></div><div><label>경주번호</label><input id="raceNo" type="number" min="1" max="20" value="${S.race.number}"></div></div><div class="row spread"><div>${st}</div><button id="loadGumvit" class="primary">검빛 자료 검증·불러오기</button></div>${S.gumvit.source?`<div class="sub source">${esc(S.gumvit.source)}</div>`:''}</section><section class="card"><h2>유효 출전마</h2><div class="tableWrap"><table><thead><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th><th>인기도</th></tr></thead><tbody>${S.horses.map(h=>`<tr><td>${h.number}</td><td>${esc(h.name)}</td><td>${esc(h.record)}</td><td>${esc(h.trainer)}</td><td>${esc(h.jockey)}</td><td>${esc(h.popularity)}</td></tr>`).join('')||'<tr><td colspan="6">검증된 경주를 불러오세요.</td></tr>'}</tbody></table></div><div class="row right"><button id="to20" class="primary" ${S.gumvit.verified&&S.horses.length>=3?'':'disabled'}>20분 전 배당 입력 →</button></div></section>`}
+function loadPreRaceContext(){
+  S.preRaceContext=null;S.regionalProfile=null;S.contextVersion=null;S.dataFreshness=null;
+  if(!window.AndroidStore||!S.gumvit.verified)return null;
+  try{
+    const raw=AndroidStore.getPreRaceContext(S.race.date,S.race.region,S.race.number,JSON.stringify(S.horses));
+    const c=JSON.parse(raw);
+    if(!c.ok)throw new Error(c.error||'사전 Context 생성 실패');
+    S.preRaceContext=c;S.regionalProfile=c.regionalProfile||null;S.contextVersion=c.contextVersion||null;S.dataFreshness=c.dataFreshness||null;
+    return c;
+  }catch(e){
+    S.preRaceContext={ok:false,error:String(e.message||e),historicalPrior:{status:'HIST_PENDING'},regionalProfile:{status:'UNAVAILABLE',sampleCount:0}};
+    return S.preRaceContext;
+  }
+}
+function preRaceBriefing(){
+  if(!S.gumvit.verified)return '';
+  const c=S.preRaceContext;
+  if(!c)return '<section class="card"><h2>PEGASUS 사전 브리핑</h2><span class="warn">사전 Context 준비 중</span></section>';
+  if(!c.ok)return `<section class="card"><h2>PEGASUS 사전 브리핑</h2><span class="warn">Fallback · ${esc(c.error||'Context 없음')}</span></section>`;
+  const rp=c.regionalProfile||{},hist=c.historicalPrior||{},ch=c.champion||{},tb=c.trackBias||{},fresh=c.dataFreshness||{},u=c.uncertainty||{};
+  const r100=rp.recent100||{},r20=rp.recent20||{};
+  return `<section class="card briefing"><div class="row spread"><h2>PEGASUS 사전 브리핑</h2><span class="${u.level==='HIGH'?'warn':'good'}">신뢰도 ${esc(u.level||'LOW')}</span></div>
+    <div class="grid g4">
+      <div><label>지역 프로파일</label><b>${esc(rp.status||'미준비')}</b><small>${rp.sampleCount||0}경주</small></div>
+      <div><label>Hist 상태</label><b class="${hist.status==='HIST_PENDING'?'warn':'good'}">${esc(hist.status||'HIST_PENDING')}</b><small>유사 ${hist.similarRaceCount||0}경주</small></div>
+      <div><label>Champion</label><b>${esc(ch.modelVersion||'BASELINE')}</b><small>${esc(ch.status||'FALLBACK')}</small></div>
+      <div><label>Track Bias</label><b>${esc(tb.status||'없음')}</b><small>당일 ${tb.sampleCount||0}경주</small></div>
+    </div>
+    <div class="briefStats">
+      <span>최근100 1인기 승률 ${r100.favoriteWinRate==null?'-':pct(r100.favoriteWinRate)}</span>
+      <span>최근20 1인기 승률 ${r20.favoriteWinRate==null?'-':pct(r20.favoriteWinRate)}</span>
+      <span>Context ${esc(c.contextVersion||'-')}</span>
+    </div>
+    <div class="sub">데이터 최신 · Hist ${esc(fresh.hist??'미연결')} · 지역 ${esc(fresh.regional??'표본없음')} · Rating ${fresh.ratingRows||0}건</div>
+  </section>`;
+}
+function raceView(){const st=S.gumvit.loading?'<span class="warn">검빛에서 날짜·경주·출전마를 검증 중…</span>':S.gumvit.error?`<span class="bad">${esc(S.gumvit.error)}</span>`:S.gumvit.verified?`<span class="good">✓ ${esc(S.race.date)} ${S.race.number}R 검증 · 유효 출전 ${S.horses.length}두</span>`:'<span class="sub">검빛 실제 페이지와 날짜·경주번호가 일치해야 배당 입력이 활성화됩니다.</span>';return `<section class="card"><h2>경주 정보</h2><div class="grid g3"><div><label>날짜</label><input id="date" type="date" value="${S.race.date}"></div><div><label>지역</label><select id="region"><option>서울</option><option>부산경남</option><option>제주</option></select></div><div><label>경주번호</label><input id="raceNo" type="number" min="1" max="20" value="${S.race.number}"></div></div><div class="row spread"><div>${st}</div><button id="loadGumvit" class="primary">검빛 자료 검증·불러오기</button></div>${S.gumvit.source?`<div class="sub source">${esc(S.gumvit.source)}</div>`:''}</section>${preRaceBriefing()}<section class="card"><h2>유효 출전마</h2><div class="tableWrap"><table><thead><tr><th>마번</th><th>마명</th><th>전적</th><th>조교사</th><th>기수</th><th>인기도</th></tr></thead><tbody>${S.horses.map(h=>`<tr><td>${h.number}</td><td>${esc(h.name)}</td><td>${esc(h.record)}</td><td>${esc(h.trainer)}</td><td>${esc(h.jockey)}</td><td>${esc(h.popularity)}</td></tr>`).join('')||'<tr><td colspan="6">검증된 경주를 불러오세요.</td></tr>'}</tbody></table></div><div class="row right"><button id="to20" class="primary" ${S.gumvit.verified&&S.horses.length>=3?'':'disabled'}>20분 전 배당 입력 →</button></div></section>`}
 function normalizeHorse(h){return {number:+h.number,name:h.name||'',record:h.record||'',trainer:h.trainer||'',jockey:h.jockey||'',expert:h.expert||'',popularity:h.popularity||'',active:true}}
 function comboNumbers(k){return String(k||'').match(/\d+/g)?.map(Number)||[]}
 function requireRunnerGuard(){if(!window.RunnerGuard)throw new Error('출전마 보호 모듈 누락');return RunnerGuard}
@@ -45,12 +81,12 @@ function syncFreshRace(d){
     S.result=null;S.postVerify=null;S.postRaceResult=null;S.savedId=null;S.analysisEpoch++;
   }else S.horses=fresh;
   sanitizeCurrentPools();
-  S.gumvit={loading:false,source:d.source||S.gumvit.source,error:'',verified:true};
+  S.gumvit={loading:false,source:d.source||S.gumvit.source,error:'',verified:true};loadPreRaceContext();
   return changed
 }
 function fetchVerifiedRace(){if(!window.AndroidRace)throw new Error('검빛 수집 모듈을 사용할 수 없습니다.');const d=JSON.parse(AndroidRace.fetchRace(S.race.date,S.race.region,S.race.number));if(!d.ok||!d.verified)throw new Error(d.error||'검빛 경주 검증 실패');if(d.requestedDate!==d.actualDate||+d.requestedRaceNo!==+d.actualRaceNo)throw new Error('검빛 응답 날짜/경주 불일치');return d}
 function refreshField(label){try{const d=fetchVerifiedRace(),changed=syncFreshRace(d);if(changed)toast(`${label}: 출전마 변경 반영 · 현재 ${S.horses.length}두`);return true}catch(e){S.gumvit.verified=false;S.gumvit.error=String(e.message||e);toast(`${label} 실패: ${S.gumvit.error}`);render();return false}}
-function loadGumvit(){const date=$('#date').value,region=$('#region').value,raceNo=+$('#raceNo').value;resetRaceVerification();S.race={date,region,number:raceNo};S.gumvit.loading=true;render();setTimeout(()=>{try{const d=fetchVerifiedRace();requireRunnerGuard();S.excludedHorses=d.excludedHorses||[];S.horses=guardedActiveHorses(d.horses||[],S.excludedHorses);if(S.horses.length<3)throw new Error('유효 출전마가 3두 미만입니다.');initPools();sanitizeCurrentPools();assertNoRunnerLeak();S.gumvit={loading:false,source:d.source||'',error:'',verified:true};refreshMlStatus();toast(`검증 완료: 출전 ${S.horses.length}두 / 제외 ${S.excludedHorses.length}두`)}catch(e){resetRaceVerification();S.race={date,region,number:raceNo};S.gumvit.error=String(e.message||e)}render()},30)}
+function loadGumvit(){const date=$('#date').value,region=$('#region').value,raceNo=+$('#raceNo').value;resetRaceVerification();S.race={date,region,number:raceNo};S.gumvit.loading=true;render();setTimeout(()=>{try{const d=fetchVerifiedRace();requireRunnerGuard();S.excludedHorses=d.excludedHorses||[];S.horses=guardedActiveHorses(d.horses||[],S.excludedHorses);if(S.horses.length<3)throw new Error('유효 출전마가 3두 미만입니다.');initPools();sanitizeCurrentPools();assertNoRunnerLeak();S.gumvit={loading:false,source:d.source||'',error:'',verified:true};loadPreRaceContext();refreshMlStatus();toast(`검증 완료: 유효 출전 ${S.horses.length}두`)}catch(e){resetRaceVerification();S.race={date,region,number:raceNo};S.gumvit.error=String(e.message||e)}render()},30)}
 function winTable(snap){return `<div class="tableWrap"><table><thead><tr><th>마번</th><th>마명</th><th>${snap==='T20'?'20분':'5분'} 단승 배당</th></tr></thead><tbody>${(S.pools.WIN?.[snap]||[]).map((r,i)=>`<tr><td>${r.key}</td><td>${esc(S.horses[i]?.name)}</td><td><input data-pool="WIN" data-snap="${snap}" data-i="${i}" inputmode="decimal" value="${esc(r.odds)}"></td></tr>`).join('')}</tbody></table></div>`}
 function optionalTable(pool,snap){const rows=S.pools[pool]?.[snap]||[];return `<section class="poolBox"><div class="row spread"><h3>${POOL_LABELS[pool]}</h3>${snap==='T20'?`<button class="secondary addRow" data-pool="${pool}">+ 조합 추가</button>`:''}</div><div class="tableWrap"><table class="compact"><thead><tr><th>조합</th><th>배당</th>${snap==='T20'?'<th></th>':''}</tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${snap==='T20'?`<input data-key="1" data-pool="${pool}" data-snap="${snap}" data-i="${i}" value="${esc(r.key)}">`:esc(S.pools[pool].T20[i]?.key||r.key)}</td><td><input data-pool="${pool}" data-snap="${snap}" data-i="${i}" inputmode="decimal" value="${esc(r.odds)}"></td>${snap==='T20'?`<td><button class="danger delRow" data-pool="${pool}" data-i="${i}">삭제</button></td>`:''}</tr>`).join('')||'<tr><td colspan="3" class="sub">선택 입력</td></tr>'}</tbody></table></div></section>`}
 function t20View(){return `<section class="card"><h2>20분 전 배당</h2><div class="good">검빛 최신 재확인 출전마 ${S.horses.length}두만 입력 대상</div>${winTable('T20')}</section>${OPTIONAL.map(p=>optionalTable(p,'T20')).join('')}<div class="row right"><button id="to5" class="primary">5분 전 배당 입력 →</button></div>`}
