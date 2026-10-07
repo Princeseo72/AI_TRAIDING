@@ -1,17 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#2F4D32">
-
-    <ImageView
-        android:id="@+id/introLogo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:adjustViewBounds="true"
-        android:contentDescription="PEGASUS 2026"
-        android:scaleType="fitCenter"
-        android:src="@drawable/pegasus_intro_logo" />
-
-</FrameLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#17271A" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+        android:paddingLeft="24dp" android:paddingRight="24dp" android:paddingTop="28dp" android:paddingBottom="24dp">
+        <ImageView android:id="@+id/introLogo" android:layout_width="190dp" android:layout_height="162dp"
+            android:layout_gravity="center_horizontal" android:adjustViewBounds="true" android:contentDescription="PEGASUS 2026"
+            android:scaleType="fitCenter" android:src="@drawable/pegasus_intro_logo"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="LIVE RACE PREFLIGHT"
+            android:textColor="#E8F5E9" android:textStyle="bold" android:textSize="21sp" android:gravity="center" android:layout_marginTop="6dp"/>
+        <TextView android:id="@+id/preflightCurrent" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="사전체크 준비" android:textColor="#B7C8B8" android:textSize="14sp" android:gravity="center" android:layout_marginTop="8dp"/>
+        <FrameLayout android:layout_width="match_parent" android:layout_height="38dp" android:layout_marginTop="18dp">
+            <ProgressBar android:id="@+id/preflightGauge" style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent" android:layout_height="24dp" android:layout_gravity="center" android:max="100" android:progress="0"/>
+            <TextView android:id="@+id/preflightPercent" android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="0%" android:textColor="#FFFFFF" android:textStyle="bold" android:gravity="center"/>
+        </FrameLayout>
+        <TextView android:id="@+id/preflightDetail" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="실전 분석에 필요한 핵심 상태를 확인합니다." android:textColor="#D5E4D6" android:textSize="13sp" android:gravity="center" android:layout_marginBottom="18dp"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+            android:background="#223B27" android:padding="16dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="인터넷 연결" android:textColor="#FFFFFF"/><TextView android:id="@+id/stateInternet" android:layout_width="70dp" android:layout_height="wrap_content" android:gravity="end" android:text="대기"/></LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="검빛 접속" android:textColor="#FFFFFF"/><TextView android:id="@+id/stateGumvit" android:layout_width="70dp" android:layout_height="wrap_content" android:gravity="end" android:text="대기"/></LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="서울경마 KRA 접속" android:textColor="#FFFFFF"/><TextView android:id="@+id/stateKra" android:layout_width="70dp" android:layout_height="wrap_content" android:gravity="end" android:text="대기"/></LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="분석 알고리즘 엔진" android:textColor="#FFFFFF"/><TextView android:id="@+id/stateEngine" android:layout_width="70dp" android:layout_height="wrap_content" android:gravity="end" android:text="대기"/></LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="핵심 모듈/배선" android:textColor="#FFFFFF"/><TextView android:id="@+id/stateModules" android:layout_width="70dp" android:layout_height="wrap_content" android:gravity="end" android:text="대기"/></LinearLayout>
+        </LinearLayout>
+        <TextView android:id="@+id/preflightFinal" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="실전 사전체크 진행 중" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="14sp" android:gravity="center" android:layout_marginTop="18dp"/>
+        <Button android:id="@+id/preflightRetry" android:layout_width="match_parent" android:layout_height="48dp"
+            android:text="사전체크 다시 실행" android:visibility="gone" android:layout_marginTop="14dp"/>
+    </LinearLayout>
+</ScrollView>
