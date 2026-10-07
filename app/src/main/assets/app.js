@@ -186,7 +186,8 @@ function trainFromResult(){
     const regionalBase=state.regionalTraining&&state.regionalTraining!==null?state.regionalTraining:RacingML.createBaselineModel(S.race.region);
     const top3=actualTop3();if(top3.length<3)throw new Error('실제 TOP3 부족');
     const actual={top3,payouts:S.postRaceResult.payouts||{},finishers:S.postRaceResult.finishers||[]};
-    const example={raceKey:`${S.race.date}|${S.race.region}|${S.race.number}`,region:S.race.region,features:S.result.featureVectors,prediction:{rolePrediction:S.result.rolePrediction,oddsPrediction:S.result.oddsPrediction,finalCombinations:S.result.finalCombinations},actual};
+    const finishPrediction=(S.pegasusResult?.final123||[]).map(x=>({horseNumber:+x.horseNumber,position:+x.position,probability:+x.probability}));
+    const example={raceKey:`${S.race.date}|${S.race.region}|${S.race.number}`,region:S.race.region,features:S.result.featureVectors,prediction:{rolePrediction:S.result.rolePrediction,oddsPrediction:S.result.oddsPrediction,finishPrediction,finalCombinations:S.result.finalCombinations},actual};
     const globalTraining=RacingML.trainCandidate({model:globalBase,example});
     const regionalTraining=RacingML.trainCandidate({model:regionalBase,example});
     if(!globalTraining.ok)throw new Error(globalTraining.error||'글로벌 학습 실패');
