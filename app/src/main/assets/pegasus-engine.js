@@ -19,7 +19,7 @@ function ratingSignal(context,horse){
  const byHorse=rs.horses||{};
  const x=byHorse[String(horse.number)]||byHorse[horse.number];
  if(!x||!Number.isFinite(Number(x.mu)))return{value:0,status:'PENDING'};
- return{value:clamp(Number(x.mu)/10,-1,1),status:'READY',sigma:Number(x.sigma)};
+ return{value:clamp(Number(x.mu)/10,-1,1),status:'READY',sigma:Number.isFinite(Number(x.sigma))?Number(x.sigma):1};
 }
 function fundamentalLayer(horses,context){
  const raw={},evidence={};
