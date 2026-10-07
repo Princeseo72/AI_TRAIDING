@@ -308,6 +308,23 @@ public class StorageBridge {
         }
     }
 
+    private JSONObject publicHistoricalPrior(JSONArray horses, JSONObject versions)throws Exception{
+        JSONObject priors=new JSONObject();int samples=0,totalStarts=0;
+        for(int i=0;i<horses.length();i++){
+            JSONObject h=horses.optJSONObject(i);if(h==null)continue;JSONObject ab=h.optJSONObject("ability");
+            int starts=ab==null?0:ab.optInt("starts",0),wins=ab==null?0:ab.optInt("wins",0),seconds=ab==null?0:ab.optInt("seconds",0);
+            if(starts<=0)continue;samples++;totalStarts+=starts;
+            double win=(double)wins/starts,place=(double)(wins+seconds)/starts,speed=ab.has("speed")?Math.max(0,Math.min(1,ab.optDouble("speed")/100.0)):0.5;
+            priors.put(String.valueOf(h.optInt("number")),Math.max(0,Math.min(1,.45*win+.35*place+.20*speed)));
+        }
+        String dbStatus=versions.optString("histStatus","HIST_PENDING");
+        if(samples>0)return new JSONObject().put("status","PUBLIC_HISTORY_READY").put("source","GUMVIT_DAEBAK_PUBLIC")
+                .put("runnerSampleCount",samples).put("similarRaceCount",totalStarts).put("horsePriors",priors)
+                .put("full5yStatus",dbStatus).put("note","경주 전 공개 과거전적 집계 사용; 로컬 5년 Hist DB와 별도");
+        return new JSONObject().put("status",dbStatus).put("runnerSampleCount",0).put("similarRaceCount",0).put("horsePriors",priors)
+                .put("full5yStatus",dbStatus).put("note","공개 과거전적과 로컬 5년 Hist 모두 미확보");
+    }
+
     @JavascriptInterface
     public String getPreRaceContext(String date, String region, int raceNo, String horsesJson) {
         long start = System.nanoTime();
@@ -340,10 +357,7 @@ public class StorageBridge {
                     .put("runnerCount", horses.length())
                     .put("versions", versions)
                     .put("regionalProfile", regional)
-                    .put("historicalPrior", new JSONObject()
-                            .put("status", versions.optString("histStatus", "HIST_PENDING"))
-                            .put("similarRaceCount", 0)
-                            .put("note", "5년 Hist 인덱스 연결 전에는 로컬 검증결과만 사용"))
+                    .put("historicalPrior", publicHistoricalPrior(horses,versions))
                     .put("ratingState", new JSONObject()
                             .put("status", ratingRows == 0 ? "RATING_PENDING" : "AVAILABLE")
                             .put("rows", ratingRows)
@@ -354,7 +368,7 @@ public class StorageBridge {
                     .put("champion", champion)
                     .put("dataFreshness", freshness)
                     .put("uncertainty", new JSONObject()
-                            .put("level", regional.optInt("sampleCount", 0) < 20 || "HIST_PENDING".equals(versions.optString("histStatus","HIST_PENDING")) ? "LOW" : "MID")
+                            .put("level", regional.optInt("sampleCount", 0) < 20 || "HIST_PENDING".equals(versions.optString("histStatus","HIST_PENDING")) && publicHistoricalPrior(horses,versions).optInt("runnerSampleCount",0)==0 ? "LOW" : "MID")
                             .put("reason", regional.optInt("sampleCount", 0) < 20 ? "지역 실전 표본 부족" : "지역 표본 존재"))
                     .put("durationMs", (System.nanoTime() - start) / 1_000_000.0);
             return out.toString();
