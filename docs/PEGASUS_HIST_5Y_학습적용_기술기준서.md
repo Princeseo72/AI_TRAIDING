@@ -321,3 +321,5 @@ v6 isolated batch build trigger. Release status remains NOT_VERIFIED until block
 - v6 회귀감사: T5 자동분석 금지 테스트는 기존 noop 함수 정의 자체를 오탐하므로 호출 유무를 검사하도록 테스트 교정. 실제 T5 입력 동작은 변경하지 않음.
 
 - f6f60dc5: v6 UI 삽입 중 발생한 legacy scheduleAnalysis noop 중복 정의 제거. T5 수동 분석 계약 자체는 변경 없음.
+
+- dfc1826f: Branding/Android 회귀검사는 기존 v4.1.0 package/version 고정값만 v6.0.0 계약으로 갱신. 아이콘/Intro/회전/minSdk 검사는 유지.
