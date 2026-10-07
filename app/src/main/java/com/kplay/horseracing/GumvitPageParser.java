@@ -75,6 +75,11 @@ final class GumvitPageParser {
         return dateOk&&raceOk;
     }
 
+    private static boolean ownedBy(Element tr,Element table){
+        for(Element p=tr.parent();p!=null;p=p.parent())if("table".equalsIgnoreCase(p.tagName()))return p==table;
+        return false;
+    }
+
     static Element findEntryTable(Document doc){
         if(doc==null)return null;
         Element best=null; int bestSize=Integer.MAX_VALUE;
@@ -82,10 +87,10 @@ final class GumvitPageParser {
         // public runner header and numeric runner rows; never return an outer layout table.
         for(Element table:doc.select("table")){
             boolean header=false,runner=false;
-            for(Element tr:table.children().select(":scope > tbody > tr, :scope > tr")){
+            for(Element tr:table.select("tr")){ if(!ownedBy(tr,table))continue;
                 String x=tr.text().replace(" ","").replace("\u00A0","");
                 if(x.contains("마번")&&x.contains("마명")&&x.contains("전적")&&x.contains("조교사")&&x.contains("기수"))header=true;
-                org.jsoup.select.Elements td=tr.select(":scope > td");
+                org.jsoup.select.Elements td=tr.children().select("td");
                 if(!td.isEmpty()&&td.get(0).text().trim().matches("\\d{1,2}"))runner=true;
             }
             if(header&&runner&&table.text().length()<bestSize){best=table;bestSize=table.text().length();}
