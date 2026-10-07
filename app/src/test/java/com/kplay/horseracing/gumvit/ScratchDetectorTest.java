@@ -45,14 +45,13 @@ public class ScratchDetectorTest {
     }
 
     @Test
-    public void horseSpecificReportStatusIsCollectedAsFallback() {
+    public void pageGlobalReportTextAloneDoesNotExcludeWithoutResultRowStatus() {
         String html = "<html><body>"
-                + "<div>● ③“그래티튜드”는 고체온증으로 「출전취소」 조치.</div>"
-                + "<div>● ⑨“넘버원삭스”는 마체이상으로 「출전제외」 조치.</div>"
+                + "<div>과거/설명 문구: ③ 그래티튜드 출전취소 사례</div>"
+                + "<div>과거/설명 문구: ⑨ 넘버원삭스 출전제외 사례</div>"
                 + "</body></html>";
         Set<Integer> numbers = ScratchDetector.resultScratchNumbers(Jsoup.parse(html));
-        assertTrue(numbers.contains(3));
-        assertTrue(numbers.contains(9));
+        assertTrue("페이지 전체 문구만으로 현재 제외마를 만들면 안 됨", numbers.isEmpty());
     }
     @Test
     public void jejuOct3Race2OnlyCurrentExplicitScratchIsExcluded() {
