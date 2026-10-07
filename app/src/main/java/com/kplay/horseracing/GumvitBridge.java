@@ -27,16 +27,11 @@ public class GumvitBridge {
     private static int indexOfHeader(Elements cells,String label){for(int i=0;i<cells.size();i++)if(cells.get(i).text().replace(" ","").contains(label))return i;return -1;}
 
     private static boolean exactScratchStatus(String s){
-        String x=s==null?"":s.replace(" ","").trim();
-        return "취".equals(x)||"취소".equals(x)||"제외".equals(x)||"출전취소".equals(x)||"출전제외".equals(x)||"경주제외".equals(x);
+        return ScratchDetector.isScratchStatus(s);
     }
 
     private static boolean entryExcluded(Element tr){
-        for(Element td:tr.select("td"))if(exactScratchStatus(td.text()))return true;
-        String row=tr.text().replace(" ","");
-        if(row.contains("출전취소")||row.contains("출전제외"))return true;
-        String cls=tr.className().toLowerCase(),style=tr.attr("style").toLowerCase();
-        return cls.contains("scratch")||cls.contains("cancel")||style.contains("line-through");
+        return ScratchDetector.isEntryExcluded(tr);
     }
 
     private static Element findResultTable(Document doc){
@@ -51,18 +46,7 @@ public class GumvitBridge {
         String url="https://www.gumvit.com/statv40/result_detail.html?loc="+code(region)+"&race="+raceNo+"&racedate="+date;
         Document doc=get(url);
         if(!date.equals(actualDate(doc))||raceNo!=actualRaceNo(doc))return new HashSet<>();
-        Element table=findResultTable(doc);if(table==null)return new HashSet<>();
-        Element header=null;for(Element tr:table.select("tr")){String x=tr.text().replace(" ","");if(x.contains("순위")&&x.contains("마번")&&x.contains("마명")){header=tr;break;}}
-        if(header==null)return new HashSet<>();
-        Elements hs=header.select("th,td");int ir=indexOfHeader(hs,"순위"),in=indexOfHeader(hs,"마번");
-        Set<Integer> out=new HashSet<>();if(ir<0||in<0)return out;
-        for(Element tr:table.select("tr")){
-            if(tr==header)continue;Elements td=tr.select("td");if(td.size()<=Math.max(ir,in))continue;
-            String rank=td.get(ir).text().trim(),no=td.get(in).text().trim();if(!no.matches("\\d{1,2}"))continue;
-            // 결과표에서는 오직 순위/상태 셀의 명시적 취소 상태만 제외로 인정한다.
-            if(exactScratchStatus(rank))out.add(Integer.parseInt(no));
-        }
-        return out;
+        return ScratchDetector.resultScratchNumbers(doc);
     }
 
     private JSONObject fetch(String date,String region,int raceNo)throws Exception{
