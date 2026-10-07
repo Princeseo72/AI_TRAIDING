@@ -24,3 +24,14 @@ for(const x of ['movementEvidence','shareDelta','relativeLmi','rankShift','READI
 assert(storeV4.includes('recent1y'),'regional 1y materialization missing');
 assert(storeV4.includes('UNVERIFIED'),'champion verification state missing');
 assert(storeV4.includes('INSUFFICIENT_FIELDS'),'track readiness gate missing');
+
+const histRepo=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/HistRepository.java','utf8');
+const histBridge=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/HistBridge.java','utf8');
+const mainV6=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/MainActivity.java','utf8');
+const buildV6=fs.readFileSync('./app/build.gradle','utf8');
+for(const x of ['PEGASUS_HIST_V1','OPEN_READONLY','pegasus_hist','WIN','PLACE','QUINELLA','EXACTA','QUINELLA_PLACE','TRIO','TRIFECTA','race_date<?','winRateBayes','top3RateBayes'])assert(histRepo.includes(x),'v6 HIST contract missing '+x);
+assert(histBridge.includes('ACTION_OPEN_DOCUMENT'),'v6 HIST file picker missing');
+assert(mainV6.includes('AndroidHist'),'v6 HIST bridge missing');
+assert(app.includes('5년 HIST 데이터 입력')&&app.includes('5년 HIST 학습'),'v6 HIST UI missing');
+assert(app.includes("source:'PEGASUS_HIST_V1'"),'v6 HIST prior injection missing');
+assert(buildV6.includes("versionName '6.0.0'")&&buildV6.includes('crosspool.v600'),'v6 package identity missing');
