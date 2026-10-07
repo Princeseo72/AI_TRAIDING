@@ -1,6 +1,7 @@
 package com.kplay.horseracing.gumvit;
 
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.junit.Test;
 import java.util.List;
 import static org.junit.Assert.*;
