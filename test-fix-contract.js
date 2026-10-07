@@ -35,3 +35,6 @@ assert(mainV6.includes('AndroidHist'),'v6 HIST bridge missing');
 assert(app.includes('5년 HIST 데이터 입력')&&app.includes('5년 HIST 학습'),'v6 HIST UI missing');
 assert(app.includes("source:'PEGASUS_HIST_V1'"),'v6 HIST prior injection missing');
 assert(buildV6.includes("versionName '6.0.0'")&&buildV6.includes('crosspool.v600'),'v6 package identity missing');
+
+for(const x of ['replayTrain','WALK_FORWARD_V1','r.race_date<?','brierModel','brierMarket','CHAMPION_ELIGIBLE','CHALLENGER_ONLY'])assert(histRepo.includes(x),'v6 replay gate missing '+x);
+assert(histBridge.includes('replayTrain'),'HIST training must execute replay validation');
