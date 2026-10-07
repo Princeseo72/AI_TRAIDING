@@ -111,18 +111,19 @@ public class GumvitBridge {
         int meet=kraMeet(region);
         String ridingUrl="https://race.kra.co.kr/chulmainfo/Riding.do?Act=02&Sub=3&meet="+meet;
         Document riding=getSupplement(ridingUrl);
-        JSONArray raw=KraRaceParser.parseRiding(riding,date,region,raceNo);
-        if(raw.length()==0)throw new Exception("KRA 출전마 표 미검출: "+date+" "+region+" "+raceNo+"R");
+        java.util.List<KraRaceParser.Entry> raw=KraRaceParser.parseRiding(riding,date,region,raceNo);
+        if(raw.isEmpty())throw new Exception("KRA 출전마 표 미검출: "+date+" "+region+" "+raceNo+"R");
 
         Set<Integer> scratches=kraChangeScratches(date,region,raceNo);
         JSONArray horses=new JSONArray(),excluded=new JSONArray();
         Set<Integer> seen=new HashSet<>();
-        for(int i=0;i<raw.length();i++){
-            JSONObject h=raw.getJSONObject(i);
-            int no=h.optInt("number");
+        for(KraRaceParser.Entry e:raw){
+            int no=e.number;
             if(no<1||seen.contains(no))continue;seen.add(no);
             boolean active=!scratches.contains(no);
-            h.put("active",active).put("excluded",!active)
+            JSONObject h=new JSONObject().put("number",no).put("name",e.name).put("record","")
+                    .put("trainer",e.trainer).put("jockey",e.jockey).put("popularity","").put("expert","")
+                    .put("active",active).put("excluded",!active)
                     .put("excludeSource",active?"":"KRA_CHANGE")
                     .put("source","KRA_RIDING");
             if(active)horses.put(h);else excluded.put(h);
