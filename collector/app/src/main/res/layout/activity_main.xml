@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical" android:padding="18dp" android:layout_width="match_parent" android:layout_height="match_parent">
+<TextView android:text="PEGASUS HIST 5Y COLLECTOR" android:textStyle="bold" android:textSize="22sp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:id="@+id/status" android:text="대기 · 2021-01-01 ~ 현재 · 서울/부경/제주/영천" android:paddingTop="12dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<ProgressBar android:id="@+id/progress" style="?android:attr/progressBarStyleHorizontal" android:max="100" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/start" android:text="5년치 수집 시작 / 이어받기" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/stop" android:text="안전 중지" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/export" android:text="PEGASUS용 DB 내보내기" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:id="@+id/counts" android:text="race 0 · runner 0 · odds 0" android:paddingTop="12dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:text="원본 경주/마번/승식별 배당을 append-only 저장합니다. 영천은 2026-09-13 이후만 별도 track_code로 저장합니다." android:paddingTop="12dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+</LinearLayout>
