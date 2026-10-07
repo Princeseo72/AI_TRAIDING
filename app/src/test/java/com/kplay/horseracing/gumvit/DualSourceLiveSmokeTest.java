@@ -44,4 +44,8 @@ public class DualSourceLiveSmokeTest {
     @Test public void jejuOct2Race1LoadsFromEitherSource()throws Exception{assertDual("2026-10-02","제주",1);}
     @Test public void busanOct2Race1LoadsFromEitherSource()throws Exception{assertDual("2026-10-02","부산경남",1);}
     @Test public void jejuOct3Race2LoadsFromEitherSource()throws Exception{assertDual("2026-10-03","제주",2);}
+    @Test public void seoulOct4Race1LoadsFromEitherSource()throws Exception{
+        int g=gumvitCount("2026-10-04","서울",1);
+        assertTrue("Known Gumvit Seoul 2026-10-04 1R must expose runners, got "+g,g>=3);
+    }
 }
