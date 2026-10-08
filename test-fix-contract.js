@@ -38,3 +38,10 @@ assert(buildV6.includes("versionName '6.0.0'")&&buildV6.includes('crosspool.v600
 
 for(const x of ['replayTrain','WALK_FORWARD_V1','r.race_date<?','brierModel','brierMarket','CHAMPION_ELIGIBLE','CHALLENGER_ONLY'])assert(histRepo.includes(x),'v6 replay gate missing '+x);
 assert(histBridge.includes('replayTrain'),'HIST training must execute replay validation');
+
+const histStore=fs.readFileSync('./app/src/main/java/com/kplay/horseracing/HistModelStore.java','utf8');
+assert(histRepo.includes('u.horse_name=?')&&!histRepo.includes('historicalHorsePrior(d,e.getKey()'),'Replay must learn horse identity, never recurring race number');
+for(const x of ['poolOutcomeModels','posteriorHitRate','FIRST2_ORDERED','TOP3_ORDERED'])assert(histRepo.includes(x),'7-pool outcome model missing '+x);
+for(const x of ['HIST_CHAMPION.json','HIST_CHALLENGER.json','writeAtomic'])assert(histStore.includes(x),'HIST model persistence missing '+x);
+assert(histBridge.includes('getChampion')&&histBridge.includes('saveCandidate'),'HIST champion serving/promotion missing');
+assert(app.includes('histChampion'),'HIST champion not passed to live engine');
