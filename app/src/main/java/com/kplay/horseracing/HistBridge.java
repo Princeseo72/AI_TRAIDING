@@ -1,11 +1,21 @@
 package com.kplay.horseracing.gumvit;
 import android.app.*;import android.content.*;import android.net.Uri;import android.webkit.*;import org.json.*;
 public final class HistBridge{
+ private final java.util.concurrent.atomic.AtomicBoolean training=new java.util.concurrent.atomic.AtomicBoolean(false);
  public static final int PICK_HIST=6001;private final MainActivity a;private final HistRepository repo;private final HistModelStore models;HistBridge(MainActivity x){a=x;repo=new HistRepository(x);models=new HistModelStore(x);}
  @JavascriptInterface public String getStatus(){return repo.status().toString();}
  @JavascriptInterface public String importFromCollector(){try{return repo.importFromCollector().toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("status","COLLECTOR_SHARE_UNAVAILABLE").put("error",String.valueOf(e.getMessage())).toString();}catch(Exception x){return "{\"ok\":false}";}}}
  @JavascriptInterface public void chooseHistFile(){a.runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");a.startActivityForResult(i,PICK_HIST);});}
  @JavascriptInterface public String trainFiveYear(){try{JSONObject summary=repo.trainSummary();JSONObject coverage=repo.oddsCoverage();JSONObject replay=repo.replayTrain();JSONObject poolModels=repo.poolOutcomeModels();boolean eligible=coverage.optBoolean("complete")&&"CHAMPION_ELIGIBLE".equals(replay.optString("candidateStatus"));JSONObject model=new JSONObject().put("modelVersion","HIST-5Y-v1").put("schemaVersion",HistRepository.SCHEMA).put("sourceSha256",replay.optString("sourceSha256")).put("trainedAt",System.currentTimeMillis()).put("replay",replay).put("poolModels",poolModels);JSONObject stored=models.saveCandidate(model,eligible);return new JSONObject().put("ok",summary.optBoolean("ok")&&replay.optBoolean("ok")).put("summary",summary).put("coverage",coverage).put("replay",replay).put("poolModels",poolModels).put("modelStore",stored).put("champion",models.champion()).put("method","HIST_5Y_WALK_FORWARD_V1").toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
+ @JavascriptInterface public String startTrainAsync(){
+  if(!training.compareAndSet(false,true)) return "{\"ok\":true,\"status\":\"BUSY\"}";
+  new Thread(()->{String out=trainFiveYear();training.set(false);a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-training",out));}).start();
+  return "{\"ok\":true,\"status\":\"STARTED\"}";
+ }
+ @JavascriptInterface public String startCollectorImportAsync(){
+  new Thread(()->{String out=importFromCollector();a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-import",out));}).start();
+  return "{\"ok\":true,\"status\":\"STARTED\"}";
+ }
  @JavascriptInterface public String getChampion(){return models.champion().toString();}
  @JavascriptInterface public String getHorsePriors(String region,String beforeDate,String horses){try{return new JSONObject().put("ok",true).put("horsePriors",repo.priors(track(region),beforeDate,new JSONArray(horses))).toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
  void onPicked(Uri u){try{final String s=repo.importFrom(u).toString();a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-import",s));}catch(Exception e){try{a.dispatchHistEvent("pegasus-hist-import",new JSONObject().put("ok",false).put("error",e.getMessage()).toString());}catch(Exception ignored){}}}
