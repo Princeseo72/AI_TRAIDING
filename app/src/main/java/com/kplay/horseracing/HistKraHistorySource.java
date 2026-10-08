@@ -1,6 +1,6 @@
 package com.kplay.horseracing.gumvit;
 import org.jsoup.*;import org.jsoup.nodes.*;import org.jsoup.select.*;import org.json.*;import java.time.*;import java.util.*;import java.util.regex.*;
-final class HistHistKraHistorySource{
+final class HistKraHistorySource{
  static final Map<String,String> MEET=new LinkedHashMap<>();static{MEET.put("SEOUL","1");MEET.put("BUSAN_GYEONGNAM","3");MEET.put("JEJU","2");MEET.put("YEONGCHEON","3");}
  static final Map<String,String> POOL=new LinkedHashMap<>();static{POOL.put("단승식","WIN");POOL.put("연승식","PLACE");POOL.put("복승식","QUINELLA");POOL.put("쌍승식","EXACTA");POOL.put("복연승식","QUINELLA_PLACE");POOL.put("삼복승식","TRIO");POOL.put("삼쌍승식","TRIFECTA");}
  static Document get(String u)throws Exception{return Jsoup.connect(u).userAgent("Mozilla/5.0 PEGASUS-HIST/1.0").timeout(15000).get();}
