@@ -35,7 +35,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Run analysis and exclusion tests
+      - name: JavaScript syntax gate\n     run: |\n       node --check app/src/main/assets/app.js\n       node --check app/src/main/assets/analysis.js\n       node --check app/src/main/assets/pegasus-engine.js\n       node --check app/src/main/assets/ml.js\n   - name: Run analysis and exclusion tests
         run: node test-analysis.js && node test-exclusion.js
 
       - name: Run race parser deterministic tests
