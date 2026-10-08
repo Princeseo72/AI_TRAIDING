@@ -70,16 +70,18 @@ jobs:
           APPID=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest application-id "$APK")
           echo "minSdk=$MINSDK applicationId=$APPID"
           test "$MINSDK" -le 29
+          VERSION=$($ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer manifest version-name "$APK")
+          test "$VERSION" = "4.3.0"
           test "$APPID" = "com.kplay.horseracing.crosspool.v410"
           ls -lh "$APK"
 
       - name: Name release APK
         shell: bash
-        run: mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Pegasus V4.1.0.apk"
+        run: mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Pegasus V4.3.0.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Pegasus-V4.1.0
+          name: Pegasus-V4.3.0
           path: "app/build/outputs/apk/debug/Pegasus V4.1.0.apk"
           if-no-files-found: error
