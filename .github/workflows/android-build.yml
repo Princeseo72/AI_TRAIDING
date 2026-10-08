@@ -62,7 +62,7 @@ jobs:
           grep -R "구형 수집기 연결" app/src/main/assets/app.js
 
       - name: Run analysis and exclusion tests
-        run: node test-analysis.js && node test-exclusion.js
+        run: node test-analysis.js && node test-exclusion.js && node test-v430-odds-runtime.js
 
       - name: Run race parser deterministic tests
         shell: bash
