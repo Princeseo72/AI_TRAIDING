@@ -1,7 +1,7 @@
 name: Package HIST Source
 on:
   push:
-    branches: [ package-hist-v4.3.0-final ]
+    branches: [ package-hist-d6ecb274 ]
 jobs:
   package:
     runs-on: ubuntu-latest
