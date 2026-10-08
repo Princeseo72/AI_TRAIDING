@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'fix/pegasus-v4.3.0-release-identity' ]
   workflow_dispatch:
 
 permissions:
