@@ -377,3 +377,20 @@ artifact upload PASS
 ### 아직 실데이터에서 확인해야 하는 런타임 게이트
 실제 사용자가 수집한 PEGASUS_HIST_V1.sqlite 자체의 7승식 coverage와 outcome completeness는 APK 빌드만으로 PASS 선언하지 않는다.
 파일 입력 후 앱의 Import Validation + oddsCoverage + Replay 결과로 판정하며 coverage 미달은 CHALLENGER_ONLY/승격금지 처리한다.
+
+
+## 19. 2026-10-08 기존 수집 DB 전달 경로 교정
+문제: HIST Collector의 내부 DB와 getExternalFilesDir export는 Collector 앱 전용 sandbox에 존재하므로 PEGASUS가 경로 직접접근할 수 없다. 기존 PEGASUS UI의 HIST 입력/학습 버튼도 click handler가 누락되어 있었다.
+
+교정:
+1. 기존 다운로드된 PEGASUS_HIST_V1.sqlite는 Storage Access Framework로 1회 선택한다.
+2. PEGASUS가 즉시 files/pegasus_hist/PEGASUS_HIST_V1.sqlite 로 고유복사하고 schema/SHA/count/pool 검증한다.
+3. 검증 성공 이벤트 직후 trainFiveYear()를 자동 호출하여 Replay -> 7승식 조건부 모델 -> Challenger/Champion 검증을 연속 수행한다.
+4. Collector 업데이트가 가능한 경우 content://com.kplay.pegasus.histcollector.hist/current read-only provider를 통해 직접 import할 수 있다.
+5. 기존 Collector 삭제/재설치는 데이터 보존 위험 때문에 요구하지 않는다. 기존 DB/다운로드 파일 재수집 금지.
+6. 실전 T20->T5 movement/Closed Loop는 HIST 전달/Replay 경로와 분리 유지한다.
+
+검증 코드 HEAD: 800fee40322db235c88096c839691f79f8d75872
+Blocking CI run: 37713181279 / SUCCESS
+Artifact digest(zip): sha256:4cf82286aa1008ac4d6ef60bd895ec82a0a4bf86778dcee8c06aad0160643fa0
+APK SHA-256: 5954649eef1079bb4b342dc395e810271399f02fe2891f7183f3c47c5218c532
