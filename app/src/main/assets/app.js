@@ -126,8 +126,16 @@ function buildInput(){
   return {horseNumbers:S.horses.map(h=>h.number),popularity:S.horses.map(h=>Number(h.popularity)||null),pools,learningModel:activeModelForAnalysis(),contextSignals:contextSignalsForAnalysis(),fundamentalPriors:fundamentalPriorsForAnalysis()}
 }
 function buildPegasusInput(){
-  const b=buildInput();
-  return {horses:S.horses.map(h=>({...h,active:true,excluded:false})),pools:b.pools,preRaceContext:S.preRaceContext||{historicalPrior:{status:'HIST_PENDING'},regionalProfile:{sampleCount:0}},learningModel:b.learningModel,legacyResult:S.result};
+  const b=buildInput(),ctx=JSON.parse(JSON.stringify(S.preRaceContext||{historicalPrior:{status:'HIST_PENDING'},regionalProfile:{sampleCount:0}}));
+  try{
+    if(window.AndroidHist&&S.histStatus?.status==='HIST_READY'){
+      const hp=JSON.parse(AndroidHist.getHorsePriors(S.race.region,S.race.date,JSON.stringify(S.horses)));
+      if(hp.ok)ctx.historicalPrior={...(ctx.historicalPrior||{}),status:'HIST_READY',source:'PEGASUS_HIST_V1',
+        horsePriors:Object.fromEntries(Object.entries(hp.horsePriors||{}).map(([k,v])=>[k,Number(v.prior)||0])),detail:hp.horsePriors};
+    }
+  }catch(e){}
+  let histChampion=null;try{if(window.AndroidHist)histChampion=JSON.parse(AndroidHist.getChampion())}catch(e){}
+  return {horses:S.horses.map(h=>({...h,active:true,excluded:false})),pools:b.pools,preRaceContext:ctx,learningModel:b.learningModel,histTraining:S.histTraining,histChampion,legacyResult:S.result};
 }
 function start(){
   if(!refreshField('분석 전 출전마 재검증'))return;
