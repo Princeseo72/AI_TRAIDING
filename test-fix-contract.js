@@ -48,3 +48,7 @@ assert(app.includes('histChampion'),'HIST champion not passed to live engine');
 
 for(const x of ['oddsCoverage','expectedSelections','minimumCoverage'])assert(histRepo.includes(x),'7-pool completeness gate missing '+x);
 assert(histBridge.includes('coverage.optBoolean("complete")'),'incomplete 7-pool HIST must never promote Champion');
+
+assert(histRepo.includes('importFromCollector')&&histRepo.includes('com.kplay.pegasus.histcollector.hist/current'),'Pegasus must pull existing collector DB directly');
+assert(histBridge.includes('importFromCollector'),'collector direct-import bridge missing');
+for(const x of ['histCollector','importCollectorAndTrain','AndroidHist.importFromCollector','AndroidHist.trainFiveYear'])assert(app.includes(x),'one-click collector-to-Replay wiring missing '+x);
