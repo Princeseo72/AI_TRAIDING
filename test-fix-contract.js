@@ -51,4 +51,5 @@ assert(histBridge.includes('coverage.optBoolean("complete")'),'incomplete 7-pool
 
 assert(histRepo.includes('importFromCollector')&&histRepo.includes('com.kplay.pegasus.histcollector.hist/current'),'Pegasus must pull existing collector DB directly');
 assert(histBridge.includes('importFromCollector'),'collector direct-import bridge missing');
-for(const x of ['histCollector','importCollectorAndTrain','AndroidHist.startCollectorImportAsync','AndroidHist.startTrainAsync'])assert(app.includes(x),'non-blocking collector-to-Replay wiring missing '+x);\nassert(histBridge.includes('startCollectorImportAsync')&&histBridge.includes('startTrainAsync'),'native async HIST utility bridge missing');
+for(const x of ['histCollector','importCollectorAndTrain','AndroidHist.startCollectorImportAsync','AndroidHist.startTrainAsync'])assert(app.includes(x),'non-blocking collector-to-Replay wiring missing '+x);
+assert(histBridge.includes('startCollectorImportAsync')&&histBridge.includes('startTrainAsync'),'native async HIST utility bridge missing');
