@@ -24,5 +24,8 @@ public final class HistDb extends SQLiteOpenHelper{
    d.setTransactionSuccessful();
   }catch(Exception e){throw new RuntimeException(e);}finally{d.endTransaction();}
  }
+ public java.time.LocalDate resumeDate(String track,java.time.LocalDate fallback){android.database.Cursor c=getReadableDatabase().rawQuery("SELECT next_date FROM checkpoint WHERE track_code=?",new String[]{track});try{return c.moveToFirst()?java.time.LocalDate.parse(c.getString(0)):fallback;}catch(Exception e){return fallback;}finally{c.close();}}
+ public synchronized void saveCheckpoint(String track,java.time.LocalDate next){getWritableDatabase().execSQL("INSERT OR REPLACE INTO checkpoint(track_code,next_date,last_race_no,updated_at) VALUES(?,?,0,?)",new Object[]{track,next.toString(),System.currentTimeMillis()});}
+ public synchronized void checkpointWal(){SQLiteDatabase d=getWritableDatabase();try{d.rawQuery("PRAGMA wal_checkpoint(FULL)",null).close();}catch(Exception ignored){}}
  public long count(String t){return android.database.DatabaseUtils.queryNumEntries(getReadableDatabase(),t);}
 }
