@@ -323,3 +323,15 @@ v6 isolated batch build trigger. Release status remains NOT_VERIFIED until block
 - f6f60dc5: v6 UI 삽입 중 발생한 legacy scheduleAnalysis noop 중복 정의 제거. T5 수동 분석 계약 자체는 변경 없음.
 
 - dfc1826f: Branding/Android 회귀검사는 기존 v4.1.0 package/version 고정값만 v6.0.0 계약으로 갱신. 아이콘/Intro/회전/minSdk 검사는 유지.
+
+
+## 18. v6.0.0 배치 검증 기록 (2026-10-08)
+- 기준 main HEAD: 743e852e8c871ce84d07c3dbcb3fec549e378861
+- v6 검증 HEAD: 6d52d7a81d8d31c7bd3fe9dedafc43c808dad6b6
+- GitHub Actions run: 37711806767
+- Artifact: Pegasus-V6.0.0 / id 11521569889
+- Artifact ZIP digest: sha256:e489905ad6193f009c6dc5510dc33c3ba6107757f79627b2a0f9d463076068f3
+- PASS: analysis/exclusion, parser deterministic, dual-source live blocking diagnostic, runner guard, ML/schema/result-learning/runtime/fix-contract, UI/performance/network/final-engine/app-integration/closed-loop/all-go, integrity/branding, APK build, package/signature/Android10 compatibility.
+- 실제 5년 HIST DB 파일은 repository에 포함되어 있지 않음. 따라서 실 DB의 5년 기간/건수/Replay 성능은 아직 PASS로 기록하지 않는다.
+- Collector V1에 과거 T20/T5 snapshot이 없으므로 HIST에서 T20/T5 movement를 생성하지 않는다. 실전 movement는 기존 PEGASUS Closed Loop 전용이다.
+- HIST Replay candidate는 point-in-time cutoff를 사용하며 자동 Champion promotion은 하지 않는다. 현재 구현은 eligibility 판정까지이며 registry promotion은 별도 검증 후 수행한다.
