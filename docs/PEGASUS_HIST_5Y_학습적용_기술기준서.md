@@ -427,3 +427,39 @@ Android 10+ scoped storage 때문에 서로 다른 앱의 app-specific directory
 A. SAF ACTION_OPEN_DOCUMENT -> PEGASUS 고유복사
 B. Collector read-only content:// provider -> PEGASUS 고유복사
 C. 향후 Collector export는 사용자 공유 저장소/Document URI 사용
+
+
+## 21. 2026-10-08 실기기 공백 장애 배치 수정 검증
+사용자 증상: PEGASUS v6.0.0 실행 시 header만 보이고 nav/main 전체 공백.
+RCA:
+- 배포본 app.js에 중복 결합/문법 손상 존재.
+- 손상 지점: `onst POOL_LABELS` 및 중복 소스.
+- 기존 CI는 JS 전체 syntax parse를 하지 않아 APK 생성까지 허용.
+- 어제 Collector 기준 commit d879138에는 HistShareProvider가 존재하지 않아 내부 DB를 PEGASUS가 content URI로 직접 가져올 수 없었음.
+교정:
+- app.js 단일 정상본 복구.
+- HIST utility 함수 복구.
+- Collector import와 5Y Replay를 Native background 실행으로 변경.
+- HIST 실패 시 기존 PEGASUS 모델 유지하고 기본 경주/T20/T5/분석 UI는 fail-open.
+- CI에 node --check blocking gate와 diagnostic artifact 추가.
+검증:
+- Code HEAD cf5a1723683130f7ae182f5ac1383ae2339fe719
+- Workflow 37727251248 SUCCESS
+- JS syntax PASS
+- analysis/exclusion PASS
+- deterministic parser PASS
+- dual-source live diagnostic PASS
+- runner guard PASS
+- ML/schema/result-learning/runtime/fix-contract PASS
+- UI/menu/performance/network/final-engine/closed-loop PASS
+- integrity/branding PASS
+- APK assemble/signature/minSdk/applicationId PASS
+- Artifact zip digest sha256:a040e81ab265f5e26ad733372df579aa82068d113c4b11e88d57f2343e423c30
+- Extracted APK SHA-256 0801ad7bcd824a7a086683ff4227de71ca7b5aabe6957147cbbe7fde01882f1c
+실기기 HIST 완료 판정:
+- 파일 import 후 schema=PEGASUS_HIST_V1
+- raceCount/runnerCount/oddsCount > 0
+- minDate/maxDate 표시
+- source SHA-256 생성
+- Replay evaluatedRaces 및 Brier 산출
+위 값이 실제 기기에서 확인되기 전에는 '5년 학습 완료'로 보고하지 않는다.
