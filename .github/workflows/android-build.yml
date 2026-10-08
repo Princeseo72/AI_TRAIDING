@@ -51,6 +51,16 @@ jobs:
           name: js-syntax-diagnostic
           path: js-syntax.log
 
+      - name: Integrated HIST collector contract gate
+        run: |
+          grep -R "ScoretableDetailList.do" app/src/main/java/com/kplay/horseracing/HistKraHistorySource.java
+          grep -R "startIntegratedCollection" app/src/main/java/com/kplay/horseracing/HistBridge.java
+          grep -R "stopIntegratedCollection" app/src/main/java/com/kplay/horseracing/HistBridge.java
+          grep -R "installCollectedAndTrainAsync" app/src/main/java/com/kplay/horseracing/HistBridge.java
+          grep -R "FAILED_SKIPPED" app/src/main/java/com/kplay/horseracing/HistCollectorService.java
+          grep -R "5년 HIST 수집/이어받기" app/src/main/assets/app.js
+          grep -R "구형 수집기 연결" app/src/main/assets/app.js
+
       - name: Run analysis and exclusion tests
         run: node test-analysis.js && node test-exclusion.js
 
