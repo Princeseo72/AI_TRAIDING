@@ -2,7 +2,7 @@ package com.kplay.horseracing.gumvit;
 import android.app.*;import android.content.*;import android.net.Uri;import android.webkit.*;import org.json.*;
 public final class HistBridge{
  private final java.util.concurrent.atomic.AtomicBoolean training=new java.util.concurrent.atomic.AtomicBoolean(false);
- public static final int PICK_HIST=6001;private final MainActivity a;private final HistRepository repo;private final HistModelStore models;HistBridge(MainActivity x){a=x;repo=new HistRepository(x);models=new HistModelStore(x);}
+ public static final int PICK_HIST=6001;private final MainActivity a;private final HistRepository repo;private final HistModelStore models;private final HistCollectorService collector;HistBridge(MainActivity x){a=x;repo=new HistRepository(x);models=new HistModelStore(x);collector=new HistCollectorService(x);}
  @JavascriptInterface public String getStatus(){return repo.status().toString();}
  @JavascriptInterface public String importFromCollector(){try{return repo.importFromCollector().toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("status","COLLECTOR_SHARE_UNAVAILABLE").put("error",String.valueOf(e.getMessage())).toString();}catch(Exception x){return "{\"ok\":false}";}}}
  @JavascriptInterface public void chooseHistFile(){a.runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");a.startActivityForResult(i,PICK_HIST);});}
@@ -16,6 +16,10 @@ public final class HistBridge{
   new Thread(()->{String out=importFromCollector();a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-import",out));}).start();
   return "{\"ok\":true,\"status\":\"STARTED\"}";
  }
+ @JavascriptInterface public String getCollectorStatus(){return collector.status().toString();}
+ @JavascriptInterface public String startIntegratedCollection(){return collector.start(()->a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-collector",collector.status().toString()))).toString();}
+ @JavascriptInterface public String stopIntegratedCollection(){return collector.stop().toString();}
+ @JavascriptInterface public String installCollectedAndTrainAsync(){new Thread(()->{String out;try{JSONObject imp=collector.installToPegasus(repo);if(!imp.optBoolean("ok"))out=imp.toString();else out=trainFiveYear();}catch(Exception e){try{out=new JSONObject().put("ok",false).put("status","FAILED_SKIPPED").put("error",e.getMessage()).toString();}catch(Exception x){out="{\"ok\":false}";}}final String payload=out;a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-training",payload));}).start();return "{\"ok\":true,\"status\":\"INSTALL_TRAIN_STARTED\"}";}
  @JavascriptInterface public String getChampion(){return models.champion().toString();}
  @JavascriptInterface public String getHorsePriors(String region,String beforeDate,String horses){try{return new JSONObject().put("ok",true).put("horsePriors",repo.priors(track(region),beforeDate,new JSONArray(horses))).toString();}catch(Exception e){try{return new JSONObject().put("ok",false).put("error",e.getMessage()).toString();}catch(Exception x){return "{\"ok\":false}";}}}
  void onPicked(Uri u){try{final String s=repo.importFrom(u).toString();a.runOnUiThread(()->a.dispatchHistEvent("pegasus-hist-import",s));}catch(Exception e){try{a.dispatchHistEvent("pegasus-hist-import",new JSONObject().put("ok",false).put("error",e.getMessage()).toString());}catch(Exception ignored){}}}
