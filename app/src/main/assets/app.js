@@ -134,7 +134,7 @@ function buildPegasusInput(){
         horsePriors:Object.fromEntries(Object.entries(hp.horsePriors||{}).map(([k,v])=>[k,Number(v.prior)||0])),detail:hp.horsePriors};
     }
   }catch(e){}
-  return {horses:S.horses.map(h=>({...h,active:true,excluded:false})),pools:b.pools,preRaceContext:ctx,learningModel:b.learningModel,histTraining:S.histTraining,legacyResult:S.result};
+  let histChampion=null;try{if(window.AndroidHist)histChampion=JSON.parse(AndroidHist.getChampion())}catch(e){}return {horses:S.horses.map(h=>({...h,active:true,excluded:false})),pools:b.pools,preRaceContext:ctx,learningModel:b.learningModel,histTraining:S.histTraining,histChampion,legacyResult:S.result};
 }
 function start(){
   if(!refreshField('분석 전 출전마 재검증'))return;
