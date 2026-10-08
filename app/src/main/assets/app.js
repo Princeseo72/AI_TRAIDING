@@ -32,6 +32,8 @@ function loadPreRaceContext(){
     return S.preRaceContext;
   }
 }
+function trainHistNow(){try{if(!window.AndroidHist)throw new Error('HIST 브리지 없음');const r=JSON.parse(AndroidHist.startTrainAsync());S.maintenance=r.ok?'HIST Replay 백그라운드 학습 시작 · Pegasus 사용 가능':'HIST 학습 시작 실패 · 기존 모델 유지';toast(S.maintenance);render()}catch(e){S.maintenance='HIST 학습 시작 오류 · 기존 Pegasus 모델 유지';toast(S.maintenance);render()}}
+function importCollectorAndTrain(){try{if(!window.AndroidHist)throw new Error('HIST 브리지 없음');const r=JSON.parse(AndroidHist.startCollectorImportAsync());S.maintenance=r.ok?'수집기 DB 백그라운드 가져오기 시작 · Pegasus 사용 가능':'수집기 연결 실패 · HIST 건너뜀';toast(S.maintenance);render()}catch(e){S.maintenance='수집기 직접연결 실패 · HIST 건너뜀 · Pegasus 정상 사용';toast(S.maintenance);render()}}
 function refreshHistStatus(){try{if(window.AndroidHist)S.histStatus=JSON.parse(AndroidHist.getStatus())}catch(e){S.histStatus={ok:false,error:String(e.message||e)}}}
 function histPanel(){const h=S.histStatus||{};const t=S.histTraining||{};return `<section class="card"><div class="row spread"><h2>5년 HIST 학습</h2><b class="${h.status==='HIST_READY'?'good':'warn'}">${esc(uiStatus(h.status||'HIST_NOT_IMPORTED'))}</b></div><div class="grid g4"><div><label>기간</label><b>${esc(h.minDate||'-')} ~ ${esc(h.maxDate||'-')}</b></div><div><label>경주</label><b>${h.raceCount||0}</b></div><div><label>출전행</label><b>${h.runnerCount||0}</b></div><div><label>배당행</label><b>${h.oddsCount||0}</b></div></div>${t.ok?`<div class="sub">학습 ${esc(t.method)} · Global ${t.global?.raceSamples||0}경주 / 착순 ${t.global?.outcomeRows||0}행 · ${esc(t.global?.status||'')}</div>`:''}</section>`;}
 function uiStatus(code){
