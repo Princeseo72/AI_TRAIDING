@@ -335,3 +335,45 @@ v6 isolated batch build trigger. Release status remains NOT_VERIFIED until block
 - 실제 5년 HIST DB 파일은 repository에 포함되어 있지 않음. 따라서 실 DB의 5년 기간/건수/Replay 성능은 아직 PASS로 기록하지 않는다.
 - Collector V1에 과거 T20/T5 snapshot이 없으므로 HIST에서 T20/T5 movement를 생성하지 않는다. 실전 movement는 기존 PEGASUS Closed Loop 전용이다.
 - HIST Replay candidate는 point-in-time cutoff를 사용하며 자동 Champion promotion은 하지 않는다. 현재 구현은 eligibility 판정까지이며 registry promotion은 별도 검증 후 수행한다.
+
+
+## 18. 2026-10-08 v6 HIST 연결 검증·수정 기록
+검증 기준 코드 HEAD: ee5e16c5c17cae57370725be287c3791d4ffec7c
+Blocking CI run: 37712365443 / SUCCESS
+
+### 발견 결함과 수정
+- 기존 Replay 일부가 horse_no를 장기 horse identity처럼 집계: 잘못된 학습. 수정 후 horse_name identity + race_date cutoff로 변경.
+- 기존 7승식 aggregate는 표본/평균배당 중심: 실제 착순 target 연결 부족. 수정 후 승식별 target을 실제 finish_rank와 연결.
+- 기존 replayTrain은 CHAMPION_ELIGIBLE만 반환하고 model 영속/serving 없음. 수정 후 HIST_CHALLENGER.json/HIST_CHAMPION.json atomic 저장 및 getChampion serving 추가.
+- 기존 Ordered Finish는 PL_FALLBACK만 사용. 수정 후 검증된 HIST Champion의 7승식 조건부 통계만 bounded correction으로 Ordered Finish에 추가.
+- 불완전 odds DB가 Champion이 될 위험: 출전두수 기준 기대 조합행 대비 실제 odds coverage를 7승식별 계산하고 90% 미만이면 Champion 승격 금지.
+
+### 승식 target 고정
+WIN=FIRST
+PLACE=TOP3 (실제 운영상 7두 이하 연승 범위는 원천 데이터 규칙에 따름)
+QUINELLA=FIRST2_UNORDERED
+EXACTA=FIRST2_ORDERED
+QUINELLA_PLACE=PAIR_IN_TOP3
+TRIO=TOP3_UNORDERED
+TRIFECTA=TOP3_ORDERED
+
+### 역할 분리 재확인
+5Y HIST DB: 장기확률/승식별 조건부 통계/horse identity prior/Ordered Finish 사전학습.
+실전 T20->T5: 기존 PEGASUS market movement + live Closed Loop. 과거 HIST에 존재하지 않는 T20/T5 snapshot 생성 금지.
+HIST Champion은 T20/T5를 대체하지 않고 bounded prior/correction으로만 결합.
+
+### 검증 결과
+analysis/exclusion PASS
+race parser deterministic PASS
+dual-source live diagnostic PASS
+excluded-runner JS boundary PASS
+ML engine/schema/learning contract PASS
+UI/menu/performance PASS
+integrity/branding PASS
+APK build PASS
+Android 10 package compatibility PASS
+artifact upload PASS
+
+### 아직 실데이터에서 확인해야 하는 런타임 게이트
+실제 사용자가 수집한 PEGASUS_HIST_V1.sqlite 자체의 7승식 coverage와 outcome completeness는 APK 빌드만으로 PASS 선언하지 않는다.
+파일 입력 후 앱의 Import Validation + oddsCoverage + Replay 결과로 판정하며 coverage 미달은 CHALLENGER_ONLY/승격금지 처리한다.
