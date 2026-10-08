@@ -11,7 +11,7 @@ function parseRecord(s){
  const m=raw.match(/(\d+)\s*전(?:\s*\(|\s+)?\s*(\d+)\s*\/\s*(\d+)\s*\)?/);
  return m?{starts:+m[1],wins:+m[2],places:+m[3],status:'READY',raw}:{starts:0,wins:0,places:0,status:raw?'UNPARSED':'PENDING',raw};
 }
-function marketSnapshot(rows){const inv={};for(const r of rows||[]){const key=String(r.key??'');if(!/^[1-9]\d*$/.test(key))throw new Error('비표준 마번 키');if(Object.prototype.hasOwnProperty.call(inv,key))throw new Error('중복 배당 키');const o=Number(r.odds);if(!(o>0)||!Number.isFinite(o))throw new Error('유효하지 않은 단승 배당');inv[key]=1/o}return normalize(inv)}
+function marketSnapshot(rows){const inv={};for(const r of rows||[]){const key=String(r.key??'');if(!key)throw new Error('빈 배당 키');if(Object.prototype.hasOwnProperty.call(inv,key))throw new Error('중복 배당 키');const o=Number(r.odds);if(!(o>0)||!Number.isFinite(o))throw new Error('유효하지 않은 배당');inv[key]=1/o}return normalize(inv)}
 function marketLayer(pools){
  const t20=marketSnapshot(pools?.WIN?.T20),t5=marketSnapshot(pools?.WIN?.T5),lmi={},movementEvidence={},raw={},cross={};
  for(const pool of ['QUINELLA','EXACTA','TRIO','TRIFECTA']){
@@ -130,7 +130,7 @@ function analyze(input){
   const horses=(input?.horses||[]).filter(h=>h&&h.active!==false&&h.excluded!==true);
   if(horses.length<3)return{ok:false,errors:['유효 출전마가 3두 미만']};
   const nums=horses.map(h=>+h.number);if(nums.some(n=>!Number.isInteger(n)||n<=0)||new Set(nums).size!==nums.length)return{ok:false,errors:['중복/비정상 출전마 번호']};
-  const active=new Set(nums),w20=input?.pools?.WIN?.T20||[],w5=input?.pools?.WIN?.T5||[];
+  const active=new Set(nums),w20=input?.pools?.WIN?.T20||[],w5=input?.pools?.WIN?.T5||[];for(const r of [...w20,...w5])if(!/^[1-9]\d*$/.test(String(r.key??'')))return{ok:false,errors:['비표준 단승 마번 키']};
   for(const rows of [w20,w5])for(const r of rows)if(!active.has(+r.key))return{ok:false,errors:['제외/비활성 마번 배당 유입']};
   const keys=rows=>new Set(rows.map(r=>String(r.key)));const k20=keys(w20),k5=keys(w5);
   if(k20.size!==active.size||k5.size!==active.size||[...active].some(n=>!k20.has(String(n))||!k5.has(String(n))))return{ok:false,errors:['T20/T5 단승 출전마 누락 또는 불일치']};
