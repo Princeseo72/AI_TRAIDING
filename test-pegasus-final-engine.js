@@ -49,3 +49,16 @@ const lr=E.analyze({...input,learningModel:learnedModel,preRaceContext:{...input
 assert(lr.learned.status==='ACTIVE_LEARNED_ADJUSTMENT','verified learned model not wired');
 assert(Math.abs(lr.learned.p1['3']-lr.fundamental.p1['3'])>1e-5,'learned weights must alter PEGASUS model probability');
 console.log('PEGASUS FINAL ENGINE TESTS PASSED');
+const histChampion={role:'CHAMPION',modelVersion:'HIST-5Y-v1',poolModels:{
+ EXACTA:{bins:{LE3:{posteriorHitRate:.20},LE10:{posteriorHitRate:.12},LE30:{posteriorHitRate:.07},GT30:{posteriorHitRate:.03}}},
+ TRIFECTA:{bins:{LE3:{posteriorHitRate:.12},LE10:{posteriorHitRate:.08},LE30:{posteriorHitRate:.04},GT30:{posteriorHitRate:.02}}},
+ QUINELLA:{bins:{LE3:{posteriorHitRate:.30},LE10:{posteriorHitRate:.20},LE30:{posteriorHitRate:.10},GT30:{posteriorHitRate:.05}}},
+ TRIO:{bins:{LE3:{posteriorHitRate:.25},LE10:{posteriorHitRate:.16},LE30:{posteriorHitRate:.09},GT30:{posteriorHitRate:.04}}}
+}};
+const histPools={...input.pools,
+ EXACTA:{T5:[{key:'1>2',odds:4.0}]},TRIFECTA:{T5:[{key:'1>2>4',odds:9.0}]},
+ QUINELLA:{T5:[{key:'1-2',odds:3.5}]},TRIO:{T5:[{key:'1-2-4',odds:7.0}]}
+};
+const hr=E.analyze({...input,pools:histPools,histChampion});
+assert(hr.ordered.status==='HIST_CONDITIONAL_ORDERED','validated HIST champion must reach Ordered Finish');
+assert(hr.ordered.scenarios.some(s=>s.histConditionalFactor!==1),'7-pool HIST correction not applied');
