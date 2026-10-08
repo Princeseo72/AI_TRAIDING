@@ -9,7 +9,7 @@ public final class HistModelStore{
   boolean promoted=false;if(eligible){writeAtomic(champion,new JSONObject(model.toString()).put("role","CHAMPION"));promoted=true;}
   return new JSONObject().put("challengerPath",challenger.getAbsolutePath()).put("championPath",champion.getAbsolutePath()).put("promoted",promoted);
  }
- synchronized JSONObject champion(){try{return champion.exists()?read(champion):new JSONObject().put("status","NO_HIST_CHAMPION");}catch(Exception e){return new JSONObject().put("status","HIST_CHAMPION_INVALID").put("error",e.getMessage());}}
+ synchronized JSONObject champion(){try{if(champion.exists())return read(champion);JSONObject o=new JSONObject();o.put("status","NO_HIST_CHAMPION");return o;}catch(Exception e){JSONObject o=new JSONObject();try{o.put("status","HIST_CHAMPION_INVALID");o.put("error",String.valueOf(e.getMessage()));}catch(Exception ignored){}return o;}}
  private static JSONObject read(File f)throws Exception{ByteArrayOutputStream b=new ByteArrayOutputStream();try(InputStream in=new FileInputStream(f)){byte[]x=new byte[8192];for(int n;(n=in.read(x))>0;)b.write(x,0,n);}return new JSONObject(new String(b.toByteArray(),StandardCharsets.UTF_8));}
  private static void writeAtomic(File f,JSONObject o)throws Exception{File t=new File(f.getParentFile(),f.getName()+".tmp");try(OutputStream out=new FileOutputStream(t)){out.write(o.toString().getBytes(StandardCharsets.UTF_8));out.flush();}if(f.exists()&&!f.delete())throw new IOException("기존 model 교체 실패");if(!t.renameTo(f))throw new IOException("model atomic move 실패");}
 }
