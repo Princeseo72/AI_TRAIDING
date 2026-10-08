@@ -5,6 +5,10 @@ public final class HistRepository{
  private static final Set<String> TRACKS=new HashSet<>(Arrays.asList("SEOUL","BUSAN_GYEONGNAM","JEJU","YEONGCHEON"));
  private static final Set<String> POOLS=new HashSet<>(Arrays.asList("WIN","PLACE","QUINELLA","EXACTA","QUINELLA_PLACE","TRIO","TRIFECTA"));
  HistRepository(Context c){ctx=c.getApplicationContext();dir=new File(ctx.getFilesDir(),"pegasus_hist");file=new File(dir,"PEGASUS_HIST_V1.sqlite");}
+ JSONObject importFromCollector()throws Exception{
+  Uri uri=Uri.parse("content://com.kplay.pegasus.histcollector.hist/current");
+  JSONObject r=importFrom(uri);return r.put("transferSource","HIST_COLLECTOR_PROVIDER").put("sourceUri",uri.toString());
+ }
  JSONObject importFrom(Uri uri)throws Exception{if(!dir.exists()&&!dir.mkdirs())throw new IOException("HIST 폴더 생성 실패");File tmp=new File(dir,"PEGASUS_HIST_V1.importing");
   try(InputStream in=ctx.getContentResolver().openInputStream(uri);OutputStream out=new FileOutputStream(tmp)){if(in==null)throw new IOException("선택 파일 열기 실패");byte[]b=new byte[65536];for(int n;(n=in.read(b))>0;)out.write(b,0,n);}
   JSONObject v=validate(tmp);if(!v.optBoolean("ok")){tmp.delete();return v;}if(file.exists()&&!file.delete())throw new IOException("기존 HIST 교체 실패");if(!tmp.renameTo(file))throw new IOException("HIST 설치영역 이동 실패");return validate(file).put("installedPath",file.getAbsolutePath()).put("immutable",true);
