@@ -45,3 +45,6 @@ for(const x of ['poolOutcomeModels','posteriorHitRate','FIRST2_ORDERED','TOP3_OR
 for(const x of ['HIST_CHAMPION.json','HIST_CHALLENGER.json','writeAtomic'])assert(histStore.includes(x),'HIST model persistence missing '+x);
 assert(histBridge.includes('getChampion')&&histBridge.includes('saveCandidate'),'HIST champion serving/promotion missing');
 assert(app.includes('histChampion'),'HIST champion not passed to live engine');
+
+for(const x of ['oddsCoverage','expectedSelections','minimumCoverage'])assert(histRepo.includes(x),'7-pool completeness gate missing '+x);
+assert(histBridge.includes('coverage.optBoolean("complete")'),'incomplete 7-pool HIST must never promote Champion');
