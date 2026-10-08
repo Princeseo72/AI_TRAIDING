@@ -13,7 +13,7 @@ public final class KraHistorySource{
  static JSONArray dedupOdds(JSONArray in)throws Exception{JSONArray o=new JSONArray();Set<String>s=new HashSet<>();for(int i=0;i<in.length();i++){JSONObject x=in.getJSONObject(i);String k=x.getString("pool_code")+"|"+x.getString("selection_key");if(s.add(k))o.put(x);}return o;}
  public static Race fetch(String track,LocalDate date,int raceNo)throws Exception{
   if(!validTrackDate(track,date))return null;String meet=MEET.get(track);String ds=date.toString().replace("-","");
-  String url="https://race.kra.co.kr/raceScore/ScoretableScoreList.do?Act=04&Sub=1&meet="+meet+"&raceDate="+ds+"&raceNo="+raceNo;
+  String url="https://race.kra.co.kr/raceScore/ScoretableDetailList.do?meet="+meet+"&realRcDate="+ds+"&realRcNo="+raceNo;
   Document d=get(url);String body=d.text();if(track.equals("YEONGCHEON")&&!body.contains("영천"))return null;if(track.equals("BUSAN_GYEONGNAM")&&body.contains("영천")&&!body.contains("부경"))return null;
   JSONArray runners=parseRunners(d),odds=parseOdds(d);if(runners.length()<2)return null;return new Race(track,group(track),date.toString(),raceNo,url,runners,odds);
  }
