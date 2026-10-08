@@ -32,7 +32,7 @@ const buildV6=fs.readFileSync('./app/build.gradle','utf8');
 for(const x of ['PEGASUS_HIST_V1','OPEN_READONLY','pegasus_hist','WIN','PLACE','QUINELLA','EXACTA','QUINELLA_PLACE','TRIO','TRIFECTA','race_date<?','winRateBayes','top3RateBayes'])assert(histRepo.includes(x),'v6 HIST contract missing '+x);
 assert(histBridge.includes('ACTION_OPEN_DOCUMENT'),'v6 HIST file picker missing');
 assert(mainV6.includes('AndroidHist'),'v6 HIST bridge missing');
-assert(app.includes('5년 HIST 데이터 입력')&&app.includes('5년 HIST 학습'),'v6 HIST UI missing');
+assert(app.includes('5년 HIST 파일 선택')&&app.includes('5년 HIST 재학습'),'v6 HIST utility UI missing');
 assert(app.includes('PEGASUS_HIST_V1')&&app.includes('horsePriors:Object.fromEntries')&&app.includes('AndroidHist.getHorsePriors'),'v6 HIST prior injection missing');
 assert(buildV6.includes("versionName '6.0.0'")&&buildV6.includes('crosspool.v600'),'v6 package identity missing');
 
@@ -51,4 +51,4 @@ assert(histBridge.includes('coverage.optBoolean("complete")'),'incomplete 7-pool
 
 assert(histRepo.includes('importFromCollector')&&histRepo.includes('com.kplay.pegasus.histcollector.hist/current'),'Pegasus must pull existing collector DB directly');
 assert(histBridge.includes('importFromCollector'),'collector direct-import bridge missing');
-for(const x of ['histCollector','importCollectorAndTrain','AndroidHist.importFromCollector','AndroidHist.trainFiveYear'])assert(app.includes(x),'one-click collector-to-Replay wiring missing '+x);
+for(const x of ['histCollector','importCollectorAndTrain','AndroidHist.startCollectorImportAsync','AndroidHist.startTrainAsync'])assert(app.includes(x),'non-blocking collector-to-Replay wiring missing '+x);\nassert(histBridge.includes('startCollectorImportAsync')&&histBridge.includes('startTrainAsync'),'native async HIST utility bridge missing');
