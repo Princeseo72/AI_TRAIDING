@@ -2,6 +2,6 @@ plugins { id 'com.android.application' }
 android {
  namespace 'com.kplay.pegasus.histcollector'
  compileSdk 35
- defaultConfig { applicationId 'com.kplay.pegasus.histcollector.v100'; minSdk 23; targetSdk 35; versionCode 100; versionName '1.0.0' }
+ defaultConfig { applicationId 'com.kplay.pegasus.histcollector.v100'; minSdk 23; targetSdk 35; versionCode 101; versionName '1.1.0' }
 }
 dependencies { implementation 'org.jsoup:jsoup:1.18.3' }
