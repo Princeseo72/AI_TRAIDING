@@ -394,3 +394,36 @@ artifact upload PASS
 Blocking CI run: 37713181279 / SUCCESS
 Artifact digest(zip): sha256:4cf82286aa1008ac4d6ef60bd895ec82a0a4bf86778dcee8c06aad0160643fa0
 APK SHA-256: 5954649eef1079bb4b342dc395e810271399f02fe2891f7183f3c47c5218c532
+
+
+## 20. 2026-10-08 WebView 공백 장애 RCA 및 Fail-Open 기준
+### 실제 장애
+- 사용자 실기기: 헤더만 표시되고 nav/main 본문 공백.
+- CI에 새 JavaScript syntax blocking gate를 추가하여 재현.
+- app.js line 315에 `onst POOL_LABELS`가 존재했고 파일 본문이 중복 결합되어 있었다.
+- Node syntax check 결과: `SyntaxError: Unexpected identifier 'POOL_LABELS'`.
+- 기존 CI는 문자열 계약 테스트만 수행하여 JavaScript 전체 파싱 실패를 검출하지 못했다.
+- 원인 파일을 624행 중 손상된 중복 전반부를 제거하여 310행 정상 단일본으로 복구.
+
+### 불변 실행 원칙
+1. PEGASUS 기본 UI/경주분석 시작은 HIST 존재 여부와 독립한다.
+2. HIST import/download/replay 실패는 앱 시작 실패로 전파하지 않는다.
+3. HIST 작업은 utility 작업이며 상태는 READY / IMPORTING / TRAINING / FAILED_SKIPPED 로 분리한다.
+4. 실패/미설치/Provider 부재 시 기존 PEGASUS 모델로 즉시 fail-open 한다.
+5. 5년 Replay는 WebView JavaScript bridge 동기 호출에서 수행하지 않는다. Native background thread에서 수행하고 완료 event만 UI에 전달한다.
+6. 기존 HIST DB가 검증되기 전에는 기존 설치본/Champion을 교체하지 않는다.
+7. Collector 삭제/재설치를 데이터 전달 해결책으로 사용하지 않는다.
+
+### APK 생성 Blocking Gate
+- node --check app.js / analysis.js / pegasus-engine.js / ml.js
+- 기존 analysis/exclusion/parser/live-source/runner-guard/ML/UI/performance/integrity 회귀
+- APK assemble
+- APK unzip/apksigner/minSdk/applicationId 검증
+- 위 단계 중 하나라도 실패하면 APK 배포 금지.
+
+### 데이터 공유 기준
+Android 10+ scoped storage 때문에 서로 다른 앱의 app-specific directory 직접접근을 금지한다.
+허용 경로:
+A. SAF ACTION_OPEN_DOCUMENT -> PEGASUS 고유복사
+B. Collector read-only content:// provider -> PEGASUS 고유복사
+C. 향후 Collector export는 사용자 공유 저장소/Document URI 사용
