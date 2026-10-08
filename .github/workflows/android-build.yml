@@ -36,11 +36,20 @@ jobs:
           gradle-version: '8.9'
 
       - name: JavaScript syntax gate
+        shell: bash
         run: |
-          node --check app/src/main/assets/app.js
-          node --check app/src/main/assets/analysis.js
-          node --check app/src/main/assets/pegasus-engine.js
-          node --check app/src/main/assets/ml.js
+          set -o pipefail
+          node --check app/src/main/assets/app.js 2>&1 | tee js-syntax.log
+          node --check app/src/main/assets/analysis.js 2>&1 | tee -a js-syntax.log
+          node --check app/src/main/assets/pegasus-engine.js 2>&1 | tee -a js-syntax.log
+          node --check app/src/main/assets/ml.js 2>&1 | tee -a js-syntax.log
+
+      - name: Upload JavaScript syntax diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-syntax-diagnostic
+          path: js-syntax.log
 
       - name: Run analysis and exclusion tests
         run: node test-analysis.js && node test-exclusion.js
