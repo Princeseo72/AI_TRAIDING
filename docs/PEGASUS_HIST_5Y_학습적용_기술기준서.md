@@ -482,3 +482,34 @@ RCA:
 - PEGASUS 본체는 HIST 실패와 무관하게 fail-open.
 - HIST 학습 승인 전 race/runner/odds count, 7 pool coverage, date range, SHA-256 검증.
 - v1.0.0 기존 DB는 위 검증을 통과하기 전 5년 완전 학습 데이터라고 보고 금지.
+
+
+## 23. PEGASUS 단일앱 HIST 통합 불변 계약 (2026-10-08)
+목적: 별도 Collector 의존 없이 PEGASUS 한 앱에서 수집 -> staging DB -> 검증 -> 설치 -> Replay -> Champion 검증까지 수행한다.
+
+### 정상기능 보존
+- 기존 경주선택/경주정보 검증/T20/T5/연산/Final123/Final8/저장기록/Closed Loop/제외마 방어를 수정대상에서 제외한다.
+- 기존 HIST 파일 선택, 구형 Collector provider import 경로도 삭제하지 않는다.
+- 새 HIST 기능은 독립 HistKraHistorySource + HistCollectorStore + HistCollectorService로 추가한다.
+- 정상 기존 기능 회귀 하나라도 실패하면 APK 배포 금지.
+
+### 통합 흐름
+1. PEGASUS는 HIST와 무관하게 정상 기동한다.
+2. 사용자가 '5년 HIST 수집/이어받기'를 명시적으로 누른 경우에만 background collection 시작.
+3. KRA ScoretableDetailList.do 상세 endpoint 사용.
+4. 수집 DB는 staging SQLite로 기존 학습용 files/pegasus_hist DB와 분리한다.
+5. 지역별 checkpoint로 중단지점부터 이어받는다.
+6. 수집/네트워크/파싱 실패 -> FAILED_SKIPPED, 저장분 유지, PEGASUS 실전기능 계속 사용.
+7. '수집DB 검증·학습' 시 수집 중이면 거부한다.
+8. staging DB flush 후 HistRepository import/validate 경로를 통해서만 학습 DB로 승격한다.
+9. schema/count/track/pool/SHA 검증 실패 시 기존 HIST/Champion 교체 금지.
+10. 검증 성공 후 기존 trainFiveYear -> walk-forward replay -> pool models -> Champion eligibility 경로를 재사용한다.
+11. T20->T5 movement는 HIST FINAL odds와 섞지 않고 기존 live Closed Loop가 계속 담당한다.
+
+### UI
+- 5년 HIST 수집/이어받기
+- HIST 안전중지
+- 수집DB 검증·학습
+- 구형 수집기 연결 (fallback 유지)
+- 5년 HIST 파일 선택 (fallback 유지)
+- 5년 HIST 재학습
