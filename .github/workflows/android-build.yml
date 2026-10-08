@@ -65,7 +65,17 @@ jobs:
         run: node test-analysis.js && node test-exclusion.js
 
       - name: Run race parser deterministic tests
-        run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.KraRaceParserTest
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.ScratchDetectorTest --tests com.kplay.horseracing.gumvit.GumvitPageParserTest --tests com.kplay.horseracing.gumvit.KraRaceParserTest 2>&1 | tee parser-tests.log
+
+      - name: Upload parser diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-tests-diagnostic
+          path: parser-tests.log
 
       - name: Run dual-source live diagnostic (blocking)
         run: gradle --no-daemon :app:testDebugUnitTest --tests com.kplay.horseracing.gumvit.DualSourceLiveSmokeTest
