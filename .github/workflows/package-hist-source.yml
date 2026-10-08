@@ -1,0 +1,19 @@
+name: Package HIST Source
+on:
+  push:
+    branches: [ package-hist-d6ecb274 ]
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Archive exact HIST commit
+        run: |
+          git archive --format=zip --output=PEGASUS-HIST-full-source-d6ecb274.zip d6ecb2747c1714c68e7a924c9343f31f96ed9762
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PEGASUS-HIST-full-source-d6ecb274
+          path: PEGASUS-HIST-full-source-d6ecb274.zip
+          if-no-files-found: error
