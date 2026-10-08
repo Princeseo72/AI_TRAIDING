@@ -83,16 +83,24 @@ function calibrationLayer(blend,context){
  for(const k of Object.keys(blend))raw[k]=(1-strength)*blend[k]+strength*uniform;
  return{status:'CALIBRATED',method:cal.method||'stored',strength,p1:normalize(raw)};
 }
-function orderedLayer(p1){
+function histBin(odds){return odds<=3?'LE3':odds<=10?'LE10':odds<=30?'LE30':'GT30'}
+function poolOdds(rows,key){for(const r of rows||[])if(String(r.key)===String(key)){const o=Number(r.odds);if(o>0)return o}return null}
+function histConditionalFactor(champion,pools,order){
+ if(champion?.role!=='CHAMPION'||!champion?.poolModels)return 1;
+ const [a,b,c]=order,tests=[['EXACTA',a+'>'+b],['TRIFECTA',a+'>'+b+'>'+c],['QUINELLA',keyUnordered([a,b])],['TRIO',keyUnordered([a,b,c])]],xs=[];
+ for(const [pool,key] of tests){const o=poolOdds(pools?.[pool]?.T5,key),m=champion.poolModels?.[pool];if(!o||!m)continue;const rate=Number(m.bins?.[histBin(o)]?.posteriorHitRate);if(Number.isFinite(rate)&&rate>0)xs.push(rate);}
+ if(!xs.length)return 1;const mean=xs.reduce((s,v)=>s+v,0)/xs.length;return clamp(.90+mean*.50,.90,1.15);
+}
+function orderedLayer(p1,champion,pools){
  const horses=Object.keys(p1).map(Number),scenarios=[];
  for(const i of horses)for(const j of horses)if(j!==i)for(const k of horses)if(k!==i&&k!==j){
    const pi=p1[i],den2=Math.max(EPS,1-pi),pj=p1[j]/den2,den3=Math.max(EPS,1-pi-p1[j]),pk=p1[k]/den3;
-   scenarios.push({order:[i,j,k],probability:pi*pj*pk});
+   const hf=histConditionalFactor(champion,pools,[i,j,k]);scenarios.push({order:[i,j,k],probability:pi*pj*pk*hf,histConditionalFactor:hf});
  }
  scenarios.sort((a,b)=>b.probability-a.probability||a.order.join('-').localeCompare(b.order.join('-')));
  const p2={},p3={};horses.forEach(h=>{p2[h]=0;p3[h]=0});
  scenarios.forEach(s=>{p2[s.order[1]]+=s.probability;p3[s.order[2]]+=s.probability});
- return{status:'PL_FALLBACK',correction:'UNTRAINED_POSITION_CORRECTION',p1:{...p1},p2:normalize(p2),p3:normalize(p3),scenarios};
+ return{status:champion?.role==='CHAMPION'?'HIST_CONDITIONAL_ORDERED':'PL_FALLBACK',correction:champion?.role==='CHAMPION'?'HIST_7POOL_BOUNDED_CORRECTION':'UNTRAINED_POSITION_CORRECTION',p1:{...p1},p2:normalize(p2),p3:normalize(p3),scenarios};
 }
 function keyUnordered(a){return a.slice().sort((x,y)=>x-y).join('-')}
 function aggregateCombos(ordered){
@@ -122,7 +130,7 @@ function analyze(input){
   if(horses.length<3)return{ok:false,errors:['유효 출전마가 3두 미만']};
   const active=new Set(horses.map(h=>+h.number));
   for(const r of [...(input?.pools?.WIN?.T20||[]),...(input?.pools?.WIN?.T5||[])])if(!active.has(+r.key))return{ok:false,errors:['제외/비활성 마번 배당 유입']};
-  const market=marketLayer(input.pools),fundamental=fundamentalLayer(horses,input.preRaceContext||{}),learned=learnedModelLayer(fundamental,market,input.learningModel,input.preRaceContext||{}),blend=blendLayer(learned.p1,market.p1,input.preRaceContext||{}),calibration=calibrationLayer(blend.p1,input.preRaceContext||{}),ordered=orderedLayer(calibration.p1),final123=positionFinal(ordered),finalEight=aggregateCombos(ordered),unc=uncertainty(input.preRaceContext||{},market.p1,fundamental.p1);
+  const market=marketLayer(input.pools),fundamental=fundamentalLayer(horses,input.preRaceContext||{}),learned=learnedModelLayer(fundamental,market,input.learningModel,input.preRaceContext||{}),blend=blendLayer(learned.p1,market.p1,input.preRaceContext||{}),calibration=calibrationLayer(blend.p1,input.preRaceContext||{}),ordered=orderedLayer(calibration.p1,input.histChampion,input.pools),final123=positionFinal(ordered),finalEight=aggregateCombos(ordered),unc=uncertainty(input.preRaceContext||{},market.p1,fundamental.p1);
   return{ok:true,engineVersion:VERSION,versions:{...VERSIONS},market,fundamental,learned,blend,calibration,ordered,final123,finalEight,uncertainty:unc,
    engineCompare:{market:market.rank.slice(0,3),fundamental:fundamental.rank.slice(0,3),final:ordered.scenarios[0]?.order.map((h,i)=>({horseNumber:h,position:i+1}))||[]},
    contextVersion:input.preRaceContext?.contextVersion||null,histStatus:input.preRaceContext?.historicalPrior?.status||'HIST_PENDING'};
