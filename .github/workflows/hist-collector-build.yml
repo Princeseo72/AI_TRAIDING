@@ -21,10 +21,15 @@ jobs:
        grep -R "YEONGCHEON" collector/app/src/main/java
        grep -R "QUINELLA_PLACE" collector/app/src/main/java
        grep -R "INSERT OR IGNORE" collector/app/src/main/java
+       grep -R "ScoretableDetailList.do" collector/app/src/main/java
+       grep -R "ACTION_CREATE_DOCUMENT" collector/app/src/main/java
+       grep -R "saveCheckpoint" collector/app/src/main/java
+       grep -R "HistShareProvider" collector/app/src/main/AndroidManifest.xml
+       grep -R "content://.*hist/current" collector/app/src/main/java || true
    - name: Build
      working-directory: collector
      run: gradle :app:assembleDebug --no-daemon
    - name: Name APK
-     run: cp collector/app/build/outputs/apk/debug/app-debug.apk PEGASUS-HIST-5Y-COLLECTOR-v1.0.0.apk
+     run: cp collector/app/build/outputs/apk/debug/app-debug.apk PEGASUS-HIST-5Y-COLLECTOR-v1.1.0.apk
    - uses: actions/upload-artifact@v4
-     with: {name: PEGASUS-HIST-5Y-COLLECTOR-v1.0.0, path: PEGASUS-HIST-5Y-COLLECTOR-v1.0.0.apk}
+     with: {name: PEGASUS-HIST-5Y-COLLECTOR-v1.1.0, path: PEGASUS-HIST-5Y-COLLECTOR-v1.0.0.apk}
