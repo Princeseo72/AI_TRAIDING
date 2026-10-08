@@ -83,5 +83,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Pegasus-V4.3.0
-          path: "app/build/outputs/apk/debug/Pegasus V4.1.0.apk"
+          path: "app/build/outputs/apk/debug/Pegasus V4.3.0.apk"
           if-no-files-found: error
