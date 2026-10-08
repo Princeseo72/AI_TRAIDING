@@ -463,3 +463,22 @@ RCA:
 - source SHA-256 생성
 - Replay evaluatedRaces 및 Brier 산출
 위 값이 실제 기기에서 확인되기 전에는 '5년 학습 완료'로 보고하지 않는다.
+
+
+## 22. Collector v1.0.0 다운로드/전달 장애 교정 기준 (2026-10-08)
+확정 RCA:
+1. Collector v1.0.0은 KRA 개별 경주 상세가 아니라 ScoretableScoreList.do 목록 endpoint를 raceDate/raceNo와 함께 사용했다.
+2. 공식 개별 경주 상세 결과/승식 원본은 ScoretableDetailList.do?meet={meet}&realRcDate={yyyyMMdd}&realRcNo={raceNo} 형태로 확인했다.
+3. checkpoint 테이블은 존재했으나 v1.0.0 MainActivity가 읽기/갱신하지 않아 실제 이어받기가 아니었다.
+4. getExternalFilesDir export는 Collector app-specific 영역이라 PEGASUS 전달 UX로 부적합했다.
+5. v1.0.0 설치본에는 공유 Provider가 없었던 build가 존재하므로 PEGASUS direct URI 연결이 실패할 수 있다.
+
+교정 계약:
+- Collector v1.1.0은 Detail endpoint만 사용.
+- 지역별 checkpoint 기반 resume.
+- ACTION_CREATE_DOCUMENT로 PEGASUS_HIST_V1.sqlite 직접 저장.
+- read-only content provider 직접전달 + SAF 파일 fallback 병행.
+- 네트워크/파싱/공유 실패 시 저장 DB 보존.
+- PEGASUS 본체는 HIST 실패와 무관하게 fail-open.
+- HIST 학습 승인 전 race/runner/odds count, 7 pool coverage, date range, SHA-256 검증.
+- v1.0.0 기존 DB는 위 검증을 통과하기 전 5년 완전 학습 데이터라고 보고 금지.
