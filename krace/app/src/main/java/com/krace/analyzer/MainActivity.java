@@ -56,14 +56,14 @@ public class MainActivity extends Activity {
         box.addView(label("CSV 수동 기록 입력 (선택)",15,0xffd9e6ff));
         csv=new EditText(this);csv.setMinLines(3);csv.setMaxLines(8);csv.setTextColor(Color.WHITE);
         csv.setHintTextColor(0xff8b9ab1);csv.setHint("num,name,rating,weight,bestSec,avgSec,earlySec,lateSec,starts,wins");
-        csv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        csv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         box.addView(csv);
         Button manual=button("CSV 검증 후 계산");box.addView(manual);
         box.addView(label("과거 확정 경주 학습 · 실제 결과 기반 (최소 40경주)",16,0xffd9e6ff));
         historyCsv=new EditText(this);historyCsv.setTextColor(Color.WHITE);historyCsv.setHintTextColor(0xff8b9ab1);
         historyCsv.setMinLines(3);historyCsv.setMaxLines(7);
         historyCsv.setHint("date,track,race,num,name,finish,rating,weight,bestSec,avgSec,recentSec,earlySec,lateSec,recentLateSec,starts,wins,layoffWeeks,recentPlace,recentField");
-        historyCsv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);box.addView(historyCsv);
+        historyCsv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);box.addView(historyCsv);
         Button train=button("③ 과거경주 시간순 학습·백테스트");box.addView(train);
         modelInfo=label("현재 모델: 미학습 임시계수",12,0xffe2c18a);box.addView(modelInfo);
         train.setOnClickListener(v->trainModel());
