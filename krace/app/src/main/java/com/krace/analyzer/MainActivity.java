@@ -303,34 +303,16 @@ public class MainActivity extends Activity {
         });
     }
     private void manual(){
+        // No stale output is retained if validation fails. All manual CSV parsing is pure Java and tested.
+        output.setText("");
         try{
-            String[] lines=csv.getText().toString().trim().split("\\r?\\n");
-            if(lines.length<4)throw new Exception("헤더와 최소 3두를 입력하세요.");
-            String[] keys=lines[0].replace(" ","").split(",");
-            String[] fields={"num","name","rating","weight","bestSec","avgSec","earlySec","lateSec","starts","wins"};
-            HashMap<String,Integer> column=new HashMap<>();
-            for(int i=0;i<keys.length;i++)column.put(keys[i],i);
-            for(String f:fields)if(!column.containsKey(f))throw new Exception("CSV 누락 열: "+f);
-            ArrayList<Horse> hs=new ArrayList<>();
-            for(int i=1;i<lines.length;i++){
-                String[] v=lines[i].split(",",-1);
-                if(v.length<keys.length)throw new Exception("CSV "+(i+1)+"행 열 부족");
-                Horse h=new Horse(Integer.parseInt(v[column.get("num")].trim()),v[column.get("name")].trim(),
-                    Integer.parseInt(v[column.get("rating")].trim()),Double.parseDouble(v[column.get("weight")].trim()),"CSV");
-                if(h.no<1||h.no>20||h.name.isEmpty())throw new Exception("CSV 마번 오류");
-                for(Horse old:hs)if(old.no==h.no)throw new Exception("CSV 마번 중복");
-                h.best=number(v[column.get("bestSec")]);h.avg=number(v[column.get("avgSec")]);
-                h.early=number(v[column.get("earlySec")]);h.late=number(v[column.get("lateSec")]);
-                h.starts=(int)number(v[column.get("starts")]);h.wins=(int)number(v[column.get("wins")]);
-                if(column.containsKey("training14"))h.training14=number(v[column.get("training14")]);
-                if(column.containsKey("vetRisk"))h.vetRisk=number(v[column.get("vetRisk")]);
-                if(column.containsKey("jockeyRides"))h.jockeyRides=(int)number(v[column.get("jockeyRides")]);
-                if(column.containsKey("jockeyWins"))h.jockeyWins=(int)number(v[column.get("jockeyWins")]);
-                hs.add(h);
-            }
-            output.setText("CSV 직접입력 (원본 미확인)\n\n"+calculate(hs,0));
-        }catch(Exception e){output.setText("CSV 계산 불가: "+e.getMessage());}
+            RankEngine.Race race=CsvInput.parseManual(csv.getText().toString());
+            RankEngine.Prediction p=RankEngine.predict(race,fitted==null?RankEngine.PRIOR:fitted.weights);
+            output.setText("CSV 직접입력 (원본 미확인)\n\n"+
+                RankEngine.summary(p,fitted!=null,fitted==null?null:fitted.eval));
+        }catch(Exception ex){
+            output.setText("CSV 계산 불가: "+ex.getMessage());
+        }
     }
-    private double number(String s){try{return Double.parseDouble(s.trim());}catch(Exception e){return Double.NaN;}}
     @Override protected void onDestroy(){seq++;pool.shutdownNow();super.onDestroy();}
 }
