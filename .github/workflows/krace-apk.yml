@@ -8,6 +8,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     defaults:
       run:
         working-directory: krace
@@ -17,12 +20,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
       - name: Install Android SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compile APK
         run: gradle :app:assembleDebug --stacktrace
       - name: APK verify
@@ -30,7 +34,8 @@ jobs:
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           unzip -t app/build/outputs/apk/debug/app-debug.apk >/dev/null
-          echo 'APK archive verified'
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify app/build/outputs/apk/debug/app-debug.apk
+          echo 'APK archive and signature verified'
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
