@@ -120,12 +120,10 @@ public final class CsvInput {
             if(c=='"' && start){quoted=true;start=false;continue;}
             if(c==','||c=='\r'||c=='\n'){
                 cells.add(field.toString().trim());field.setLength(0);start=true;closed=false;
-                if(c!='.'){
-                    if(c=='\r'&&i+1<csv.length()&&csv.charAt(i+1)=='\n')i++;
-                    if(c=='\r'||c=='\n'){
-                        if(!blank(cells))rows.add(new ArrayList<>(cells));
-                        cells.clear();
-                    }
+                if(c=='\r'&&i+1<csv.length()&&csv.charAt(i+1)=='\n')i++;
+                if(c=='\r'||c=='\n'){
+                    if(!blank(cells))rows.add(new ArrayList<>(cells));
+                    cells.clear();
                 }
             }else{
                 if(closed&&!Character.isWhitespace(c))throw new IllegalArgumentException("CSV 인용부호 이후 문자 오류");

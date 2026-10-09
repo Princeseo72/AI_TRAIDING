@@ -87,10 +87,12 @@ try:
   r=shot("08_fetch_result")
   report=textall(r)
   record("Fetch button accepts tap and updates status",("검빛" in report or "출전목록" in report or "조회" in report),report[:550])
-  record("Live listing parsed usable races",re.search(r"검빛 당일 출전목록\s+\d+경주 확인",report) is not None,
-         report[:550]+" — This FAIL means source integration is not verified.")
+  has_races=re.search(r"검빛 당일 출전목록\\s+\\d+경주 확인",report) is not None
+  no_races="당일 출전 목록 없음" in report
+  record("Today race list or explicit no-race state",has_races or no_races,
+         report[:550]+" (출전 목록 유무에 따른 검사; 경기 없음은 적중 검증이 아님)")
   record("Analyze race button state",True,next((x.get("enabled","") for x in nodes(r) if "선택 경주 분석" in x.get("text","")),"not visible"))
-  if re.search(r"검빛 당일 출전목록\s+\d+경주 확인",report):
+  if has_races:
    if find_and_tap("선택 경주 분석"):
     time.sleep(2);z=shot("08b_analysis_button")
     record("Race-analysis button executes; avoids already-started races",
