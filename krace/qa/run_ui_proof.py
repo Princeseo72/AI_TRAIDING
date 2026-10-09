@@ -43,7 +43,7 @@ def find_and_tap(label,tries=4):
  for i in range(tries):
   root=shot("lookup_"+str(len(evidence["checks"]))+"_"+str(i))
   node=target(root,label)
-  if node:
+  if node is not None:
    tap(node);return True
   swipe()
  return False
@@ -56,14 +56,18 @@ try:
  time.sleep(3)
  r=shot("01_launch")
  record("APK installed and activity launched",current_app(),"android.app.Activity visible="+str(current_app()))
- record("Main title and fetch button",bool(target(r,"KRace") and target(r,"출전표 불러오기")),textall(r)[:350])
- record("Initial model says untrained",bool("미학습" in textall(r)),textall(r)[-250:])
+ record("Main title and fetch button",(target(r,"KRace") is not None and target(r,"출전표 불러오기") is not None),textall(r)[:350])
+ for _ in range(3):swipe()
+ r=shot("01b_model_label")
+ record("Model state visible when scrolled",("미학습" in textall(r)),textall(r)[-250:])
+ for _ in range(3):adb("shell","input","swipe","230","250","230","780","400")
+ time.sleep(1)
  # Spinner category selection
  if find_and_tap("영남(부경)"):
   r=shot("02_track_dropdown")
   record("Track picker displays Seoul, Yeongnam, Jeju",all(s in textall(r) for s in ("서울","제주")),textall(r)[:250])
   n=target(r,"서울")
-  if n:
+  if n is not None:
    tap(n);r=shot("03_seoul_selected")
    record("Change track to Seoul",bool(target(r,"서울")),textall(r)[:200])
    if find_and_tap("서울"):
