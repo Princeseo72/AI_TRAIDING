@@ -19,7 +19,9 @@ public class MainActivity extends Activity {
     private final ExecutorService pool=Executors.newSingleThreadExecutor();
     private Spinner track,raceSpinner;
     private TextView status,output;
-    private EditText csv;
+    private EditText csv, historyCsv;
+    private RankEngine.Fitted fitted=null;
+    private TextView modelInfo;
     private Button load,analyze;
     private final ArrayList<Race> races=new ArrayList<>();
     private final String[] codes={"B","S","J"};
@@ -32,6 +34,7 @@ public class MainActivity extends Activity {
     static class Horse {
         int no,rating,starts=-1,wins=-1;
         String name,jockey;double weight,best=Double.NaN,avg=Double.NaN,early=Double.NaN,late=Double.NaN,score;
+        double recent=Double.NaN,recentLate=Double.NaN;int recentPlace=-1,recentField=-1,layoffWeeks=-1;
         Horse(int n,String s,int r,double w,String j){no=n;name=s;rating=r;weight=w;jockey=j;}
     }
     @Override public void onCreate(Bundle b){
@@ -55,7 +58,16 @@ public class MainActivity extends Activity {
         csv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         box.addView(csv);
         Button manual=button("CSV 검증 후 계산");box.addView(manual);
-        box.addView(label("※ 출력은 검증되지 않은 탐색적 수식의 상대순위입니다. 실제 적중확률이나 수익을 보장하지 않습니다.",11,0xffd3b47e));
+        box.addView(label("과거 확정 경주 학습 · 실제 결과 기반 (최소 40경주)",16,0xffd9e6ff));
+        historyCsv=new EditText(this);historyCsv.setTextColor(Color.WHITE);historyCsv.setHintTextColor(0xff8b9ab1);
+        historyCsv.setMinLines(3);historyCsv.setMaxLines(7);
+        historyCsv.setHint("date,track,race,num,name,finish,rating,weight,bestSec,avgSec,recentSec,earlySec,lateSec,recentLateSec,starts,wins,layoffWeeks,recentPlace,recentField");
+        historyCsv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);box.addView(historyCsv);
+        Button train=button("③ 과거경주 시간순 학습·백테스트");box.addView(train);
+        modelInfo=label("현재 모델: 미학습 임시계수",12,0xffe2c18a);box.addView(modelInfo);
+        train.setOnClickListener(v->trainModel());
+        restoreModel();
+        box.addView(label("※ 과거 경주를 학습하지 않은 결과는 신뢰성 없는 시험용 순위입니다. 실전 금전 베팅 근거로 사용하지 마세요.",11,0xffd3b47e));
         setContentView(scroll);
         load.setOnClickListener(v->loadRaces());
         analyze.setOnClickListener(v->analyzeRace());
@@ -109,7 +121,12 @@ public class MainActivity extends Activity {
                 int n=Integer.parseInt(m.group(1));
                 if(n<1||n>20)continue;
                 boolean dup=false;for(Horse h:a)if(h.no==n)dup=true;
-                if(!dup)a.add(new Horse(n,m.group(2),Integer.parseInt(m.group(3)),Double.parseDouble(m.group(4)),m.group(5)));
+                if(!dup){
+                  Horse h=new Horse(n,m.group(2),Integer.parseInt(m.group(3)),Double.parseDouble(m.group(4)),m.group(5));
+                  Matcher l=Pattern.compile("(\\d{1,3})\\s*주").matcher(row.text());
+                  if(l.find())h.layoffWeeks=Integer.parseInt(l.group(1));
+                  a.add(h);
+                }
             }
         }
         return a;
@@ -119,30 +136,28 @@ public class MainActivity extends Activity {
         return m.find()?60*Integer.parseInt(m.group(1))+Double.parseDouble(m.group(2)):Double.NaN;
     }
     private void records(Document d,ArrayList<Horse> hs,int distance){
-        Pattern times=Pattern.compile("(?<!\\d)([01]:\\d\\d\\.\\d)(?!\\d)");
-        Pattern speeds=Pattern.compile("0:(1[2-6]\\.\\d)");
-        boolean primary=false;
+        Pattern clock=Pattern.compile("(?<!\\d)([01]:\\d\\d\\.\\d)(?!\\d)");
+        Pattern plain=Pattern.compile("(?<![\\d:])(1[2-6]\\.\\d)(?!\\d)");
+        int phase=0;
         for(Element row:d.select("tr")){
-            String text=row.text().replace('\u00a0',' ').replaceAll("\\s+"," ").trim();
-            if(text.contains("해당거리 최고기록")||text.contains("5착내 평균기록"))primary=true;
-            if(text.contains("기록 비교 최고기록")&&text.contains("S-1F"))primary=false;
+            String t=row.text().replace('\u00a0',' ').replaceAll("\\s+"," ").trim();
+            if(t.contains("마번")&&t.contains("해당거리")&&t.contains("최근")){phase=1;continue;}
+            if(t.contains("마번")&&t.contains("S-1F")&&t.contains("최고기록")){phase=2;continue;}
+            if(t.contains("마번")&&t.contains("1000")&&t.contains("기록")){phase=3;continue;}
+            if(phase!=1&&phase!=2)continue;
             for(Horse h:hs){
-                if(!Pattern.compile("^"+h.no+"\\s+"+Pattern.quote(h.name)+"(?:\\s|$)").matcher(text).find())continue;
-                ArrayList<Double> raceTimes=new ArrayList<>();
-                Matcher tm=times.matcher(text);
-                while(tm.find()){
-                    double x=toSeconds(tm.group(1));
-                    if(x>distance*.052&&x<distance*.12)raceTimes.add(x);
-                }
-                if(!primary){
-                    if(raceTimes.size()==1&&Double.isNaN(h.best))h.score=0; // latest-race row, not scoring evidence
-                    continue;
-                }
-                if(raceTimes.size()>=2){
-                    h.best=raceTimes.get(raceTimes.size()-2);
-                    h.avg=raceTimes.get(raceTimes.size()-1);
-                    ArrayList<Double> seg=new ArrayList<>();
-                    Matcher sm=speeds.matcher(text);while(sm.find())seg.add(Double.parseDouble(sm.group(1)));
+                if(!Pattern.compile("^"+h.no+"\\s+"+Pattern.quote(h.name)+"(?:\\s|$)").matcher(t).find())continue;
+                ArrayList<Double> clocks=new ArrayList<>();
+                Matcher m=clock.matcher(t);
+                while(m.find())clocks.add(toSeconds(m.group(1)));
+                if(phase==1){
+                    if(clocks.size()>=3){h.recent=clocks.get(clocks.size()-1);h.recentLate=clocks.get(clocks.size()-2);}
+                    Matcher fm=Pattern.compile("1:\\d\\d\\.\\d([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])").matcher(t);
+                    if(fm.find())h.recentPlace=fm.group(1).charAt(0)-'①'+1;
+                }else if(phase==2){
+                    if(clocks.size()>=2){h.best=clocks.get(clocks.size()-2);h.avg=clocks.get(clocks.size()-1);}
+                    Matcher sm=plain.matcher(t);ArrayList<Double> seg=new ArrayList<>();
+                    while(sm.find())seg.add(Double.parseDouble(sm.group(1)));
                     if(seg.size()>=2){h.early=seg.get(0);h.late=seg.get(1);}
                 }
             }
@@ -177,44 +192,58 @@ public class MainActivity extends Activity {
         }
     }
     static class Ticket{int a,b,c;double score;Ticket(int x,int y,int z,double s){a=x;b=y;c=z;score=s;}}
+    private RankEngine.Race convert(ArrayList<Horse> horses,String id){
+        ArrayList<RankEngine.Runner> rs=new ArrayList<>();
+        for(Horse h:horses){
+            RankEngine.Runner r=new RankEngine.Runner(h.no,h.name);r.rating=h.rating;r.weight=h.weight;
+            r.best=h.best;r.avg=h.avg;r.early=h.early;r.late=h.late;
+            r.recent=h.recent;r.recentLate=h.recentLate;r.starts=h.starts;r.wins=h.wins;
+            r.recentPlace=h.recentPlace;r.recentField=h.recentField;r.layoffWeeks=h.layoffWeeks;
+            rs.add(r);
+        }
+        return new RankEngine.Race(id,rs);
+    }
     private String calculate(ArrayList<Horse> hs,int expected)throws Exception{
-        if(hs.size()<3)throw new Exception("최소 출전 3두 미만");
         if(expected>0&&hs.size()!=expected)throw new Exception("출전마 누락 "+hs.size()+"/"+expected+"두");
-        int valid=0;for(Horse h:hs)if(!Double.isNaN(h.best)&&!Double.isNaN(h.avg))valid++;
-        if(valid<Math.ceil(hs.size()*.6))throw new Exception("거리 최고/평균기록 부족 "+valid+"/"+hs.size()+"두. 추정 계산 차단.");
-        for(Horse h:hs){
-            h.score=-.27*z(h,"best",hs)-.18*z(h,"avg",hs)-.18*z(h,"late",hs)-.07*z(h,"early",hs)
-                  +.16*z(h,"rating",hs)-.06*z(h,"weight",hs)+.08*z(h,"win",hs);
-        }
-        double sum=0;HashMap<Integer,Double> strength=new HashMap<>();
-        for(Horse h:hs){double s=Math.exp(Math.max(-3,Math.min(3,h.score))*1.5);strength.put(h.no,s);sum+=s;}
-        ArrayList<Ticket> pairs=new ArrayList<>(),triples=new ArrayList<>();
-        for(Horse a:hs)for(Horse b:hs)if(a.no!=b.no){
-            double pa=strength.get(a.no)/sum*strength.get(b.no)/(sum-strength.get(a.no));
-            pairs.add(new Ticket(a.no,b.no,0,pa));
-            for(Horse c:hs)if(c.no!=a.no&&c.no!=b.no){
-                double pc=pa*strength.get(c.no)/(sum-strength.get(a.no)-strength.get(b.no));
-                triples.add(new Ticket(a.no,b.no,c.no,pc));
-            }
-        }
-        pairs.sort((x,y)->Double.compare(y.score,x.score));
-        triples.sort((x,y)->Double.compare(y.score,x.score));
-        hs.sort((a,b)->Double.compare(b.score,a.score));
-        StringBuilder s=new StringBuilder();
-        s.append("쌍승: ").append(pairs.get(0).a).append(" → ").append(pairs.get(0).b).append("\n");
-        s.append("삼쌍승: ").append(triples.get(0).a).append(" → ").append(triples.get(0).b).append(" → ").append(triples.get(0).c).append("\n");
-        s.append("보완: ").append(triples.get(1).a).append(" → ").append(triples.get(1).b).append(" → ").append(triples.get(1).c);
-        s.append("\n\n출전마 ").append(hs.size()).append("두 · 거리기록 ").append(valid).append("두 확보\n");
-        s.append("---- 전체 상대점수 ----\n");
-        for(Horse h:hs){
-            s.append(h.no).append(" ").append(h.name).append(" / 레이팅 ").append(h.rating)
-            .append(" / ").append(h.weight).append("kg / ")
-            .append(String.format(Locale.US,"%.3f",h.score)).append(" / 최고 ")
-            .append(Double.isNaN(h.best)?"미확인":String.format(Locale.US,"%.1f",h.best))
-            .append("\n");
-        }
-        s.append("\n중요: 위 수치는 검증되지 않은 임의 가중치의 상대점수이며 적중확률이 아닙니다.");
-        return s.toString();
+        RankEngine.Prediction p=RankEngine.predict(convert(hs,"live"),fitted==null?RankEngine.PRIOR:fitted.weights);
+        return RankEngine.summary(p,fitted!=null,fitted==null?null:fitted.eval);
+    }
+    private void restoreModel(){
+        String saved=getPreferences(MODE_PRIVATE).getString("learnedWeights","");
+        if(saved.isEmpty())return;
+        try{
+            String[] a=saved.split(",");
+            if(a.length!=RankEngine.K)return;
+            double[] w=new double[a.length];
+            for(int i=0;i<a.length;i++)w[i]=Double.parseDouble(a[i]);
+            RankEngine.Evaluation e=new RankEngine.Evaluation();
+            e.trainRaces=getPreferences(MODE_PRIVATE).getInt("train",0);
+            e.testRaces=getPreferences(MODE_PRIVATE).getInt("test",0);
+            e.exactHits=getPreferences(MODE_PRIVATE).getInt("exact",0);
+            e.tripleHits=getPreferences(MODE_PRIVATE).getInt("triple",0);
+            if(e.trainRaces<25||e.testRaces<10)return;
+            fitted=new RankEngine.Fitted(w,e);
+            modelInfo.setText("학습모델 활성: 훈련 "+e.trainRaces+" · 시간순 검증 "+e.testRaces+
+                "경주 · 쌍승 "+e.exactHits+" · 삼쌍승 "+e.tripleHits+" 적중");
+        }catch(Exception ignored){fitted=null;}
+    }
+    private void trainModel(){
+        final String source=historyCsv.getText().toString();
+        modelInfo.setText("과거경주 자료 검증 및 학습 중...");
+        pool.execute(()->{
+            try{
+                RankEngine.Fitted next=RankEngine.fitHistorical(source);
+                StringBuilder s=new StringBuilder();
+                for(int i=0;i<next.weights.length;i++){if(i>0)s.append(",");s.append(next.weights[i]);}
+                getPreferences(MODE_PRIVATE).edit().putString("learnedWeights",s.toString())
+                    .putInt("train",next.eval.trainRaces).putInt("test",next.eval.testRaces)
+                    .putInt("exact",next.eval.exactHits).putInt("triple",next.eval.tripleHits).apply();
+                fitted=next;
+                runOnUiThread(()->modelInfo.setText("완료: 훈련 "+next.eval.trainRaces+
+                   "/검증 "+next.eval.testRaces+"경주. 검증 쌍승 "+next.eval.exactHits+
+                   " · 삼쌍승 "+next.eval.tripleHits+" 적중 (과거 데이터에만 해당)"));
+            }catch(Exception ex){runOnUiThread(()->modelInfo.setText("학습 거부: "+ex.getMessage()));}
+        });
     }
     private void loadRaces(){
         final int ticket=++seq; final String loc=codes[track.getSelectedItemPosition()];
@@ -226,13 +255,13 @@ public class MainActivity extends Activity {
                 Collections.sort(a,(x,y)->{int c=y.date.compareTo(x.date);return c!=0?c:x.no-y.no;});
                 ArrayList<Race> today=new ArrayList<>();
                 for(Race r:a)if(r.date.equals(kstDate()))today.add(r);
-                final ArrayList<Race> display=today.isEmpty()?a:today;
+                final ArrayList<Race> display=today;
                 runOnUiThread(()->{
                     if(seq!=ticket)return;
                     races.clear();races.addAll(display);
                     raceSpinner.setAdapter(new ArrayAdapter<Race>(this,android.R.layout.simple_spinner_dropdown_item,races));
-                    analyze.setEnabled(true);load.setEnabled(true);
-                    status.setText("검빛 출전목록 "+races.size()+"경주 확인"+(today.isEmpty()?" (당일 목록 아님)":""));
+                    analyze.setEnabled(!races.isEmpty());load.setEnabled(true);
+                    status.setText(races.isEmpty()?"검빛 접속 성공, 당일 출전 목록 없음":"검빛 당일 출전목록 "+races.size()+"경주 확인");
                 });
             }catch(Exception ex){
                 String fallback="";

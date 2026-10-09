@@ -27,15 +27,14 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Compile APK
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Compile and run unit tests
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
       - name: APK verify
         shell: bash
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           unzip -t app/build/outputs/apk/debug/app-debug.apk >/dev/null
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify app/build/outputs/apk/debug/app-debug.apk
-          echo 'APK archive and signature verified'
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
