@@ -32,6 +32,11 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
           gradle :app:assembleDebug --stacktrace
+      - name: Enable Android emulator KVM acceleration
+        run: |
+          ls -l /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm
       - name: Install app and exercise UI on Android 10 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
