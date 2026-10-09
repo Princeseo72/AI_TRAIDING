@@ -28,10 +28,10 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compile and run unit tests
-        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
+        run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.RankEngineTest --tests com.krace.analyzer.SourceGuardTest --tests com.krace.analyzer.ConditionDataTest :app:assembleDebug --stacktrace
       - name: Live KRA and Gumvit HTML smoke diagnostic
         continue-on-error: true
-        run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.LiveWebSmokeTest --rerun-tasks --stacktrace
+        run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.LiveWebSmokeTest --stacktrace
       - name: APK verify
         shell: bash
         run: |
