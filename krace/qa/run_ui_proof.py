@@ -69,16 +69,16 @@ try:
   n=target(r,"서울")
   if n is not None:
    tap(n);r=shot("03_seoul_selected")
-   record("Change track to Seoul",bool(target(r,"서울")),textall(r)[:200])
+   record("Change track to Seoul",(target(r,"서울") is not None),textall(r)[:200])
    if find_and_tap("서울"):
     r=shot("04_second_track_dropdown");n=target(r,"제주")
-    if n:tap(n)
+    if n is not None:tap(n)
     r=shot("05_jeju_selected")
-    record("Change track to Jeju",bool(target(r,"제주")),textall(r)[:200])
+    record("Change track to Jeju",(target(r,"제주") is not None),textall(r)[:200])
   # set Yeongnam again
   if find_and_tap("제주"):
    r=shot("06_third_track_dropdown");n=target(r,"영남(부경)")
-   if n:tap(n)
+   if n is not None:tap(n)
    shot("07_yeongnam_reset")
  else:record("Open track picker",False,"Yeongnam picker not found")
  # Fetch live Gumvit: may be blocked by site, capture exact outcome
@@ -87,9 +87,15 @@ try:
   r=shot("08_fetch_result")
   report=textall(r)
   record("Fetch button accepts tap and updates status",("검빛" in report or "출전목록" in report or "조회" in report),report[:550])
-  record("Live listing parsed usable races",("출전목록" in report and "경주 확인" in report and "실패" not in report),
+  record("Live listing parsed usable races",re.search(r"검빛 당일 출전목록\s+\d+경주 확인",report) is not None,
          report[:550]+" — This FAIL means source integration is not verified.")
   record("Analyze race button state",True,next((x.get("enabled","") for x in nodes(r) if "선택 경주 분석" in x.get("text","")),"not visible"))
+  if re.search(r"검빛 당일 출전목록\s+\d+경주 확인",report):
+   if find_and_tap("선택 경주 분석"):
+    time.sleep(2);z=shot("08b_analysis_button")
+    record("Race-analysis button executes; avoids already-started races",
+           "계산 중단" in textall(z) or "분석 중단" in textall(z),textall(z)[-750:])
+   else:record("Race-analysis button can be pressed",False,"Button missing")
  else:record("Fetch button tap",False,"button not found")
  # CSV: click input by finding first EditText; use adb to insert lines
  for _ in range(5):swipe()
