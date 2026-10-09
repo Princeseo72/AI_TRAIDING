@@ -1,0 +1,56 @@
+name: KRace Android Physical UI Proof
+on:
+  push:
+    branches: [krace-analyzer-apk]
+    paths:
+      - 'krace/qa/**'
+      - '.github/workflows/krace-ui-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    defaults:
+      run:
+        working-directory: krace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install SDK and compile
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          gradle :app:assembleDebug --stacktrace
+      - name: Install app and exercise UI on Android 10 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            cd krace
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            python3 qa/run_ui_proof.py
+      - name: Upload raw UI screenshots, XML, logcat, and signed APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KRace-Physical-UI-Verification
+          path: |
+            krace/qa/proof/
+            krace/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
