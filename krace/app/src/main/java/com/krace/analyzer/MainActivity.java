@@ -34,7 +34,8 @@ public class MainActivity extends Activity {
     static class Horse {
         int no,rating,starts=-1,wins=-1;
         String name,jockey;double weight,best=Double.NaN,avg=Double.NaN,early=Double.NaN,late=Double.NaN,score;
-        double recent=Double.NaN,recentLate=Double.NaN;int recentPlace=-1,recentField=-1,layoffWeeks=-1;
+        double recent=Double.NaN,recentLate=Double.NaN,training14=Double.NaN,vetRisk=Double.NaN;
+        int recentPlace=-1,recentField=-1,layoffWeeks=-1,jockeyRides=-1,jockeyWins=-1;
         Horse(int n,String s,int r,double w,String j){no=n;name=s;rating=r;weight=w;jockey=j;}
     }
     @Override public void onCreate(Bundle b){
@@ -182,6 +183,7 @@ public class MainActivity extends Activity {
             r.best=h.best;r.avg=h.avg;r.early=h.early;r.late=h.late;
             r.recent=h.recent;r.recentLate=h.recentLate;r.starts=h.starts;r.wins=h.wins;
             r.recentPlace=h.recentPlace;r.recentField=h.recentField;r.layoffWeeks=h.layoffWeeks;
+            r.training14=h.training14;r.vetRisk=h.vetRisk;r.jockeyWins=h.jockeyWins;r.jockeyRides=h.jockeyRides;
             rs.add(r);
         }
         return new RankEngine.Race(id,rs);
@@ -276,6 +278,15 @@ public class MainActivity extends Activity {
                 if(hs.size()!=r.count)throw new Exception("검빛 출전마 파싱 누락 "+hs.size()+"/"+r.count);
                 popularity(info,hs);
                 records(doc(detail(loc,r,"chulma_record.html")),hs,r.distance,r.date);
+                // Public condition reports; unavailable pages stay missing, not guessed.
+                try{
+                    Map<Integer,Double> workload=ConditionData.training(doc(detail(loc,r,"train_view.html")),r.date);
+                    for(Horse h:hs)if(workload.containsKey(h.no))h.training14=workload.get(h.no);
+                }catch(Exception ignored){}
+                try{
+                    Map<Integer,Double> vet=ConditionData.veterinary(doc(detail(loc,r,"medicalAndEquipment.html")),r.date);
+                    for(Horse h:hs)if(vet.containsKey(h.no))h.vetRisk=vet.get(h.no);
+                }catch(Exception ignored){}
                 // Official starters override published field size; stop rather than guess scratched runner IDs.
                 try{
                     Integer confirmed=SourceGuard.officialStarters(doc(kra(loc)),r.date,r.no);
@@ -311,6 +322,10 @@ public class MainActivity extends Activity {
                 h.best=number(v[column.get("bestSec")]);h.avg=number(v[column.get("avgSec")]);
                 h.early=number(v[column.get("earlySec")]);h.late=number(v[column.get("lateSec")]);
                 h.starts=(int)number(v[column.get("starts")]);h.wins=(int)number(v[column.get("wins")]);
+                if(column.containsKey("training14"))h.training14=number(v[column.get("training14")]);
+                if(column.containsKey("vetRisk"))h.vetRisk=number(v[column.get("vetRisk")]);
+                if(column.containsKey("jockeyRides"))h.jockeyRides=(int)number(v[column.get("jockeyRides")]);
+                if(column.containsKey("jockeyWins"))h.jockeyWins=(int)number(v[column.get("jockeyWins")]);
                 hs.add(h);
             }
             output.setText("CSV 직접입력 (원본 미확인)\n\n"+calculate(hs,0));

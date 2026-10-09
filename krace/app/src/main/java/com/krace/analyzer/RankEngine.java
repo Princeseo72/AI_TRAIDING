@@ -7,17 +7,18 @@ import java.io.*;
  */
 public final class RankEngine {
  public static final String[] KEYS={"distanceAverage","recentRace","historicalBest","closing200","opening200",
-  "pacePressure","closingFade","classRating","weight","smoothedWinRate","layoff","recentPlace"};
+  "pacePressure","closingFade","classRating","weight","smoothedWinRate","layoff","recentPlace","training14","vetHistory","jockeyWinRate"};
  public static final int K=KEYS.length;
- public static final double[] PRIOR={.30,.20,.07,.14,.10,.16,.10,.11,.06,.05,.06,.06};
- private static final double[] FLOORS={1.0,1.0,1.0,.25,.25,.15,.25,5.0,1.0,.05,2.0,.15};
+ public static final double[] PRIOR={.30,.20,.07,.14,.10,.16,.10,.11,.06,.05,.06,.06,0,0,0};
+ private static final double[] FLOORS={1.0,1.0,1.0,.25,.25,.15,.25,5.0,1.0,.05,2.0,.15,15.0,.2,.05};
  private static final double EPS=1e-12;
  private RankEngine(){}
  public static class Runner {
    public int no,rating,starts=-1,wins=-1,recentPlace=-1,recentField=-1,layoffWeeks=-1,finish=-1;
    public String name="";
    public double avg=Double.NaN,best=Double.NaN,recent=Double.NaN,early=Double.NaN,late=Double.NaN,
-    recentLate=Double.NaN,weight=Double.NaN;
+    recentLate=Double.NaN,weight=Double.NaN,training14=Double.NaN,vetRisk=Double.NaN;
+   public int jockeyWins=-1,jockeyRides=-1;
    public Runner(int n,String s){no=n;name=s;}
  }
  public static class Race {
@@ -57,6 +58,7 @@ public final class RankEngine {
     if(good(h.weight)&&(h.weight<45||h.weight>65))throw new IllegalArgumentException("부담중량 오류");
     if(h.rating<0||h.rating>150)throw new IllegalArgumentException("레이팅 범위 오류");
     if(h.starts>=0&&(h.wins<0||h.wins>h.starts))throw new IllegalArgumentException("전적 오류");
+    if(h.jockeyRides>=0&&(h.jockeyWins<0||h.jockeyWins>h.jockeyRides))throw new IllegalArgumentException("기수 전적 오류");
     if(needFinish&&h.finish>0&&h.finish<=3){if(places[h.finish])throw new IllegalArgumentException("입상 순서 중복");places[h.finish]=true;}
     if(needFinish&&h.finish<=0)throw new IllegalArgumentException("결과 누락: "+h.no);
    }
@@ -76,6 +78,9 @@ public final class RankEngine {
    f[9]=h.starts>0?(h.wins+1.)/(h.starts+8.):Double.NaN;
    f[10]=h.layoffWeeks>=0? -Math.max(0,h.layoffWeeks-8):Double.NaN;
    f[11]=h.recentPlace>0&&h.recentField>1?-(h.recentPlace-1.)/(h.recentField-1.):Double.NaN;
+   f[12]=good(h.training14)?h.training14:Double.NaN;
+   f[13]=good(h.vetRisk)?-h.vetRisk:Double.NaN;
+   f[14]=h.jockeyRides>0?(h.jockeyWins+1.)/(h.jockeyRides+8.):Double.NaN;
    return f;
  }
  /** Each race is normalized independently; the mean of an unknown feature is not asserted to be real. */
@@ -162,6 +167,10 @@ public final class RankEngine {
     h.recentLate=num(c[col.get("recentLateSec")]);h.starts=integer(c[col.get("starts")],-1);
     h.wins=integer(c[col.get("wins")],-1);h.layoffWeeks=integer(c[col.get("layoffWeeks")],-1);
     h.recentPlace=integer(c[col.get("recentPlace")],-1);h.recentField=integer(c[col.get("recentField")],-1);
+    h.training14=col.containsKey("training14")?num(c[col.get("training14")]):Double.NaN;
+    h.vetRisk=col.containsKey("vetRisk")?num(c[col.get("vetRisk")]):Double.NaN;
+    h.jockeyRides=col.containsKey("jockeyRides")?integer(c[col.get("jockeyRides")],-1):-1;
+    h.jockeyWins=col.containsKey("jockeyWins")?integer(c[col.get("jockeyWins")],-1):-1;
     map.computeIfAbsent(id,k->new ArrayList<>()).add(h);
    }
    ArrayList<Race> result=new ArrayList<>();
@@ -215,7 +224,7 @@ public final class RankEngine {
    s.append("쌍승 ").append(p.exacta.get(0)).append("\n");
    s.append("삼쌍승 ").append(p.trifecta.get(0)).append("\n");
    s.append("삼쌍승 차선 ").append(p.trifecta.get(1)).append("\n");
-   s.append("분석 항목: 평균/최근/최고/종반/초반/선행경합/종반감속/레이팅/중량/승률/공백/최근착순\n");
+   s.append("분석 항목: 평균/최근/최고/종반/초반/선행경합/종반감속/레이팅/중량/승률/공백/최근착순/조교량/진료/기수성적\n");
    if(!p.warning.isEmpty())s.append(p.warning).append("\n");
    s.append("각 마번 변수별 기여값:\n");
    ArrayList<Integer> order=new ArrayList<>(p.scores.keySet());
