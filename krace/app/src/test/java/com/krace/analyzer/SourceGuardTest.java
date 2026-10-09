@@ -25,4 +25,13 @@ public class SourceGuardTest {
   "<tr><td>1 말 26/10/09-1R 건 2% 홍 55K 0:13.5 0:39.0 1:15.0</td></tr></table>";
   try{SourceGuard.gumvitRecords(Jsoup.parse(html),"2026-10-09");fail();}catch(IllegalArgumentException ex){assertTrue(ex.getMessage().contains("차단"));}
  }
+ @Test public void blocksRaceAfterStart(){
+  java.util.Calendar c=java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"));
+  c.clear();c.set(2026,9,9,17,56,0);
+  assertFalse(SourceGuard.beforeStart("2026-10-09","17:55",c.getTimeInMillis()));
+  c.set(2026,9,9,17,54,0);
+  assertTrue(SourceGuard.beforeStart("2026-10-09","17:55",c.getTimeInMillis()));
+  assertFalse(SourceGuard.beforeStart("2026-10-09","",c.getTimeInMillis()));
+ }
+
 }

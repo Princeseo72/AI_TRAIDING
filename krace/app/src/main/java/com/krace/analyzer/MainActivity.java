@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
     private final String[] codes={"B","S","J"};
     private int seq=0;
     static class Race {
-        String date,grade,region;int no,distance,count;
+        String date,grade,region,startTime="";int no,distance,count;
         Race(String d,int n,String g,int m,int c,String l){date=d;no=n;grade=g;distance=m;count=c;region=l;}
         public String toString(){return date+"  "+no+"경주  "+distance+"m  "+count+"두  "+grade;}
     }
@@ -106,6 +106,8 @@ public class MainActivity extends Activity {
             Matcher m=p.matcher(row.text());
             if(m.find()){
                 Race r=new Race(m.group(1),Integer.parseInt(m.group(2)),m.group(3),Integer.parseInt(m.group(4)),Integer.parseInt(m.group(5)),loc);
+                Matcher departure=Pattern.compile("([01][0-9]|2[0-3]):[0-5][0-9]").matcher(row.text());
+                if(departure.find())r.startTime=departure.group();
                 boolean duplicate=false;for(Race old:a)if(old.no==r.no&&old.date.equals(r.date))duplicate=true;
                 if(!duplicate)a.add(r);
             }
@@ -261,6 +263,10 @@ public class MainActivity extends Activity {
         final Race r=(Race)raceSpinner.getSelectedItem();
         final String loc=codes[track.getSelectedItemPosition()];
         final int ticket=++seq;
+        if(!SourceGuard.beforeStart(r.date,r.startTime,System.currentTimeMillis())){
+            output.setText("계산 중단: 경주 출발시간 경과 또는 시각 검증 실패. 종료 경주 사후기록이 예측에 섞이는 것을 차단합니다.");
+            return;
+        }
         analyze.setEnabled(false);load.setEnabled(false);output.setText("");message(r+" 분석 중...");
         pool.execute(()->{
             String result;

@@ -73,4 +73,14 @@ final class SourceGuard {
    }
    return out;
  }
+ /** Reject past races and unknown start times (no hindsight predictions). */
+ static boolean beforeStart(String raceDate,String hhmm,long now){
+   try{
+     if(!raceDate.matches("\\d{4}-\\d{2}-\\d{2}")||!hhmm.matches("\\d{2}:\\d{2}"))return false;
+     java.text.SimpleDateFormat df=new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm",java.util.Locale.US);
+     df.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Seoul"));df.setLenient(false);
+     return now<df.parse(raceDate+" "+hhmm).getTime();
+   }catch(Exception ex){return false;}
+ }
+
 }
