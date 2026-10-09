@@ -4,6 +4,7 @@ on:
     branches: [krace-analyzer-apk]
     paths:
       - 'krace/qa/**'
+      - 'krace/app/src/main/**'
       - '.github/workflows/krace-ui-proof.yml'
   workflow_dispatch:
 permissions:
