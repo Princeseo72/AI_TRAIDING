@@ -135,32 +135,13 @@ public class MainActivity extends Activity {
         Matcher m=Pattern.compile("^([01]):(\\d\\d\\.\\d)$").matcher(s);
         return m.find()?60*Integer.parseInt(m.group(1))+Double.parseDouble(m.group(2)):Double.NaN;
     }
-    private void records(Document d,ArrayList<Horse> hs,int distance){
-        Pattern clock=Pattern.compile("(?<!\\d)([01]:\\d\\d\\.\\d)(?!\\d)");
-        Pattern plain=Pattern.compile("(?<![\\d:])(1[2-6]\\.\\d)(?!\\d)");
-        int phase=0;
-        for(Element row:d.select("tr")){
-            String t=row.text().replace('\u00a0',' ').replaceAll("\\s+"," ").trim();
-            if(t.contains("마번")&&t.contains("해당거리")&&t.contains("최근")){phase=1;continue;}
-            if(t.contains("마번")&&t.contains("S-1F")&&t.contains("최고기록")){phase=2;continue;}
-            if(t.contains("마번")&&t.contains("1000")&&t.contains("기록")){phase=3;continue;}
-            if(phase!=1&&phase!=2)continue;
-            for(Horse h:hs){
-                if(!Pattern.compile("^"+h.no+"\\s+"+Pattern.quote(h.name)+"(?:\\s|$)").matcher(t).find())continue;
-                ArrayList<Double> clocks=new ArrayList<>();
-                Matcher m=clock.matcher(t);
-                while(m.find())clocks.add(toSeconds(m.group(1)));
-                if(phase==1){
-                    if(clocks.size()>=3){h.recent=clocks.get(clocks.size()-1);h.recentLate=clocks.get(clocks.size()-2);}
-                    Matcher fm=Pattern.compile("1:\\d\\d\\.\\d([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])").matcher(t);
-                    if(fm.find())h.recentPlace=fm.group(1).charAt(0)-'①'+1;
-                }else if(phase==2){
-                    if(clocks.size()>=2){h.best=clocks.get(clocks.size()-2);h.avg=clocks.get(clocks.size()-1);}
-                    Matcher sm=plain.matcher(t);ArrayList<Double> seg=new ArrayList<>();
-                    while(sm.find())seg.add(Double.parseDouble(sm.group(1)));
-                    if(seg.size()>=2){h.early=seg.get(0);h.late=seg.get(1);}
-                }
-            }
+    private void records(Document d,ArrayList<Horse> hs,int distance,String raceDate){
+        HashMap<Integer,SourceGuard.Record> data=SourceGuard.gumvitRecords(d,raceDate);
+        for(Horse h:hs){
+            SourceGuard.Record r=data.get(h.no);
+            if(r==null||!h.name.equals(r.name))continue;
+            h.best=r.best;h.avg=r.avg;h.early=r.early;h.late=r.late;
+            h.recent=r.recent;h.recentLate=r.recentLate;h.recentPlace=r.recentPlace;
         }
     }
     private void popularity(Document d,ArrayList<Horse> hs){
@@ -288,7 +269,14 @@ public class MainActivity extends Activity {
                 ArrayList<Horse> hs=entries(info);
                 if(hs.size()!=r.count)throw new Exception("검빛 출전마 파싱 누락 "+hs.size()+"/"+r.count);
                 popularity(info,hs);
-                records(doc(detail(loc,r,"chulma_record.html")),hs,r.distance);
+                records(doc(detail(loc,r,"chulma_record.html")),hs,r.distance,r.date);
+                // Official starters override published field size; stop rather than guess scratched runner IDs.
+                try{
+                    Integer confirmed=SourceGuard.officialStarters(doc(kra(loc)),r.date,r.no);
+                    if(confirmed!=null&&confirmed!=hs.size())
+                        throw new IllegalStateException("KRA 출전 "+confirmed+"두/검빛 "+hs.size()+"두 불일치. 출전제외 확인 필요");
+                }catch(IllegalStateException ex){throw ex;}
+                 catch(Exception ex){ /* KRA unreachable: Gumvit source remains flagged in report. */ }
                 result="원본: 검빛 / "+r+"\n\n"+calculate(hs,r.count);
             }catch(Exception ex){
                 String k="";try{k=doc(kra(loc)).text().contains("출전")?"KRA 접속 확인":"KRA 응답 수신";}catch(Exception e){k="KRA 조회 실패";}
