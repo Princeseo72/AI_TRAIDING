@@ -116,7 +116,7 @@ try:
   adb("shell","input","keyevent","4")
   r=shot("10_csv_inserted")
   record("CSV inserted into actual app field","HorseA" in textall(r),textall(r)[-700:])
-  if find_and_tap("CSV 검증 후 계산"):
+  if find_and_tap("붙여넣은 CSV 검증·계산"):
    r=shot("11_csv_result")
    t=textall(r)
    record("CSV computation produces ranked exacta/trifecta",("쌍승" in t and "삼쌍승" in t and "HorseA" in t),t[-1600:])
@@ -124,7 +124,7 @@ try:
  else:record("CSV editable field exists",False,"No visible EditText")
  # Training button with absent historical data must reject; never claim a trained model
  for _ in range(4):swipe()
- if find_and_tap("과거경주 시간순 학습"):
+ if find_and_tap("붙여넣은 과거경주 학습"):
   time.sleep(2);r=shot("12_training_no_data")
   record("Training rejects missing historical data","학습 거부" in textall(r),textall(r)[-800:])
  else:record("Training menu available",False,"not visible")
