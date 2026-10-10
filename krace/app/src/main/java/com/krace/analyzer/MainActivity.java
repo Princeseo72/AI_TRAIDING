@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
     private static final int MAX_RACE_FILE_BYTES=512*1024;
     private static final int MAX_HISTORY_FILE_BYTES=5*1024*1024;
     private TextView fileInfo;
+    private ScrollView screenScroll;
     private Spinner track,raceSpinner;
     private TextView status,output;
     private EditText csv, historyCsv;
@@ -50,7 +51,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
+        ScrollView scroll=new ScrollView(this);screenScroll=scroll;scroll.setFillViewport(true);
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(24,22,24,22);box.setBackgroundColor(Color.rgb(12,20,33));scroll.addView(box);
         TextView header=label("KRace | 출전마 착순 분석",23,0xfff3f7ff);box.addView(header);
@@ -260,7 +261,7 @@ public class MainActivity extends Activity {
         final int kind=requestCode;
         final String displayName=csvDisplayName(uri);
         // Prevent stale suggestions and previous calculations being confused with this import.
-        if(kind==PICK_RACE_CSV){output.setText("");fileInfo.setText("CSV 검사 중: "+displayName);}
+        if(kind==PICK_RACE_CSV){output.setText("");csv.setText("");fileInfo.setText("CSV 검사 중: "+displayName);}
         else modelInfo.setText("과거 CSV 자료 검사 중: "+displayName);
         pool.execute(()->{
             try{
@@ -275,6 +276,7 @@ public class MainActivity extends Activity {
                         csv.setText(text);
                         fileInfo.setText("불러오기 성공: "+displayName+" | 출전마 "+race.runners.size()+"두 | 누락 신호 "+predicted.missingCells+"개");
                         output.setText("CSV 파일: "+displayName+" (출처 자체 검증 불가)\n\n"+rank);
+                        screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
                     });
                 }else{
                     RankEngine.Fitted trained=RankEngine.fitHistorical(text);
@@ -291,8 +293,9 @@ public class MainActivity extends Activity {
                 final String err=e.getMessage()==null?e.getClass().getSimpleName():e.getMessage();
                 runOnUiThread(()->{
                     if(kind==PICK_RACE_CSV){
-                        fileInfo.setText("CSV 불러오기 실패: "+displayName);
+                        fileInfo.setText("CSV 불러오기 실패: "+displayName+"\n사유: "+err+"\n이전 결과 무효화");
                         output.setText("파일 착순 계산 중단: "+err);
+                        screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
                     }else{
                         modelInfo.setText("학습 중단: "+err+" (기존 학습모델 유지)");
                     }
@@ -397,8 +400,10 @@ public class MainActivity extends Activity {
             RankEngine.Prediction p=RankEngine.predict(race,fitted==null?RankEngine.PRIOR:fitted.weights);
             output.setText("CSV 직접입력 (원본 미확인)\n\n"+
                 RankEngine.summary(p,fitted!=null,fitted==null?null:fitted.eval));
+            screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
         }catch(Exception ex){
             output.setText("CSV 계산 불가: "+ex.getMessage());
+            screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
         }
     }
     @Override protected void onDestroy(){seq++;pool.shutdownNow();super.onDestroy();}

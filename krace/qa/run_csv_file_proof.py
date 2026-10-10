@@ -92,9 +92,11 @@ try:
   record("Invalid CSV selected",chosen,"krace_qa_invalid.csv")
   if chosen:
    pause(3);x=snapshot("08_invalid_rejected");t=txt(x)
-   if "착순" not in t:
-    scroll(up=False);x=snapshot("08_invalid_scrolled");t=txt(x)
-   record("Outcome leakage blocked; old recommendation cleared","착순" in t and "중단" in t,t)
+   if "착순" not in t or "중단" not in t:
+    for _ in range(5):scroll(up=False)
+    x=snapshot("08_invalid_scrolled");t=txt(x)
+   record("Outcome leakage blocked; old recommendation cleared",
+      "착순" in t and "중단" in t and "쌍승 1 → 2" not in t,t)
  else:record("Invalid CSV picker access",False,"open button not found")
 except Exception as ex:
  record("Script exception",False,repr(ex))
