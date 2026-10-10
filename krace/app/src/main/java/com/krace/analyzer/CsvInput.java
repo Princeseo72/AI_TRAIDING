@@ -18,6 +18,13 @@ public final class CsvInput {
             if(!columns.containsKey(key))columns.put(key,i);
             else throw new IllegalArgumentException("CSV 중복 열: "+key);
         }
+        // Never use outcome columns from the race being predicted (hindsight data leak).
+        for(String column:columns.keySet()){
+            String lower=column.toLowerCase(java.util.Locale.ROOT);
+            if(lower.equals("finish")||lower.equals("result")||lower.equals("rank")||
+               lower.equals("착순")||lower.equals("순위")||lower.equals("결승순위"))
+                throw new IllegalArgumentException("CSV 현재 경주 결과(착순) 포함: 학습용 CSV를 경주예측에 사용할 수 없습니다");
+        }
         String[] required={"num","name","rating","weight","bestSec","avgSec","earlySec","lateSec","starts","wins"};
         for(String s:required)if(!columns.containsKey(s))throw new IllegalArgumentException("CSV 누락 열: "+s);
         ArrayList<RankEngine.Runner> runners=new ArrayList<>();

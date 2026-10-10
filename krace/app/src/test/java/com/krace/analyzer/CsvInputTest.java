@@ -49,4 +49,9 @@ public class CsvInputTest {
    v=v.replace("20,5\n","20,5,74.3,43\n").replace("20,4\n","20,4,,\n").replace("20,3\n","20,3,,\n");
    assertEquals(74.3,CsvInput.parseManual(v).runners.get(0).recent,1e-8);
  }
+ @Test public void outcomeLeakageIsBlocked(){
+    reject(base.replace("num,name,rating","num,name,finish,rating").replace(",HorseA,90",",HorseA,1,90")
+      .replace(",HorseB,85",",HorseB,2,85").replace(",HorseC,80",",HorseC,3,80"),"착순");
+ }
+
 }

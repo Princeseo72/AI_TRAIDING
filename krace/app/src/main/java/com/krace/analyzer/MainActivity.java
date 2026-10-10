@@ -2,6 +2,12 @@ package com.krace.analyzer;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.content.Intent;
+import android.net.Uri;
+import android.provider.OpenableColumns;
+import android.database.Cursor;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import android.graphics.Color;
 import android.view.View;
 import android.widget.*;
@@ -17,6 +23,10 @@ import java.text.SimpleDateFormat;
 
 public class MainActivity extends Activity {
     private final ExecutorService pool=Executors.newSingleThreadExecutor();
+    private static final int PICK_RACE_CSV=1901, PICK_HISTORY_CSV=1902;
+    private static final int MAX_RACE_FILE_BYTES=512*1024;
+    private static final int MAX_HISTORY_FILE_BYTES=5*1024*1024;
+    private TextView fileInfo;
     private Spinner track,raceSpinner;
     private TextView status,output;
     private EditText csv, historyCsv;
@@ -53,18 +63,23 @@ public class MainActivity extends Activity {
         analyze=button("② 선택 경주 분석");analyze.setEnabled(false);box.addView(analyze);
         status=label("경마장을 선택하고 출전표를 불러오세요.",13,0xffb5cee9);box.addView(status);
         output=label("",15,0xfff5f6ff);box.addView(output);
-        box.addView(label("CSV 수동 기록 입력 (선택)",15,0xffd9e6ff));
+        box.addView(label("경주 CSV: 파일 선택 또는 붙여넣기",15,0xffd9e6ff));
         csv=new EditText(this);csv.setMinLines(3);csv.setMaxLines(8);csv.setTextColor(Color.WHITE);
         csv.setHintTextColor(0xff8b9ab1);csv.setHint("num,name,rating,weight,bestSec,avgSec,earlySec,lateSec,starts,wins");
         csv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         box.addView(csv);
-        Button manual=button("CSV 검증 후 계산");box.addView(manual);
-        box.addView(label("과거 확정 경주 학습 · 실제 결과 기반 (최소 40경주)",16,0xffd9e6ff));
+        Button picker=button("📂 경주 CSV 파일 선택·즉시 착순 계산");box.addView(picker);
+        fileInfo=label("선택된 CSV 파일 없음",12,0xffb5cee9);box.addView(fileInfo);
+        picker.setOnClickListener(v->openCsvPicker(PICK_RACE_CSV));
+        Button manual=button("붙여넣은 CSV 검증·계산");box.addView(manual);
+        box.addView(label("과거경주 CSV: 파일 선택 또는 붙여넣기 (최소 40경주)",16,0xffd9e6ff));
         historyCsv=new EditText(this);historyCsv.setTextColor(Color.WHITE);historyCsv.setHintTextColor(0xff8b9ab1);
         historyCsv.setMinLines(3);historyCsv.setMaxLines(7);
         historyCsv.setHint("date,track,race,num,name,finish,rating,weight,bestSec,avgSec,recentSec,earlySec,lateSec,recentLateSec,starts,wins,layoffWeeks,recentPlace,recentField");
         historyCsv.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);box.addView(historyCsv);
-        Button train=button("③ 과거경주 시간순 학습·백테스트");box.addView(train);
+        Button historyPicker=button("📂 과거 경주 CSV 파일 선택·학습·백테스트");box.addView(historyPicker);
+        historyPicker.setOnClickListener(v->openCsvPicker(PICK_HISTORY_CSV));
+        Button train=button("③ 붙여넣은 과거경주 학습·백테스트");box.addView(train);
         modelInfo=label("현재 모델: 미학습 임시계수",12,0xffe2c18a);box.addView(modelInfo);
         train.setOnClickListener(v->trainModel());
         restoreModel();
@@ -218,18 +233,90 @@ public class MainActivity extends Activity {
         pool.execute(()->{
             try{
                 RankEngine.Fitted next=RankEngine.fitHistorical(source);
-                StringBuilder s=new StringBuilder();
-                for(int i=0;i<next.weights.length;i++){if(i>0)s.append(",");s.append(next.weights[i]);}
-                getPreferences(MODE_PRIVATE).edit().putString("learnedWeights",s.toString())
-                    .putInt("train",next.eval.trainRaces).putInt("test",next.eval.testRaces)
-                    .putInt("exact",next.eval.exactHits).putInt("triple",next.eval.tripleHits).apply();
-                fitted=next;
+                saveFitted(next);
                 runOnUiThread(()->modelInfo.setText("완료: 훈련 "+next.eval.trainRaces+
                    "/검증 "+next.eval.testRaces+"경주. 검증 쌍승 "+next.eval.exactHits+
                    " · 삼쌍승 "+next.eval.tripleHits+" 적중 (과거 데이터에만 해당)"));
             }catch(Exception ex){runOnUiThread(()->modelInfo.setText("학습 거부: "+ex.getMessage()));}
         });
     }
+
+    private void openCsvPicker(int requestCode){
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*"); // CSV files served as text/csv, application/octet-stream, Excel CSV, etc.
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivityForResult(intent,requestCode); }
+        catch(Exception e){fileInfo.setText("파일 선택기 실행 불가: "+e.getMessage());}
+    }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode!=PICK_RACE_CSV && requestCode!=PICK_HISTORY_CSV)return;
+        if(resultCode!=RESULT_OK || data==null || data.getData()==null){
+            fileInfo.setText("CSV 파일 선택 취소 — 기존 결과는 변경하지 않음");
+            return;
+        }
+        Uri uri=data.getData();
+        final int kind=requestCode;
+        final String displayName=csvDisplayName(uri);
+        // Prevent stale suggestions and previous calculations being confused with this import.
+        if(kind==PICK_RACE_CSV){output.setText("");fileInfo.setText("CSV 검사 중: "+displayName);}
+        else modelInfo.setText("과거 CSV 자료 검사 중: "+displayName);
+        pool.execute(()->{
+            try{
+                String text=CsvFileCodec.readCsv(getContentResolver().openInputStream(uri),
+                    kind==PICK_RACE_CSV?MAX_RACE_FILE_BYTES:MAX_HISTORY_FILE_BYTES,displayName);
+                if(kind==PICK_RACE_CSV){
+                    RankEngine.Race race=CsvInput.parseManual(text);
+                    RankEngine.Prediction predicted=RankEngine.predict(race,fitted==null?RankEngine.PRIOR:fitted.weights);
+                    final String rank=RankEngine.summary(predicted,fitted!=null,fitted==null?null:fitted.eval);
+                    // Update the editable area only on success; keep imported content inspectable.
+                    runOnUiThread(()->{
+                        csv.setText(text);
+                        fileInfo.setText("불러오기 성공: "+displayName+" | 출전마 "+race.runners.size()+"두 | 누락 신호 "+predicted.missingCells+"개");
+                        output.setText("CSV 파일: "+displayName+" (출처 자체 검증 불가)\n\n"+rank);
+                    });
+                }else{
+                    RankEngine.Fitted trained=RankEngine.fitHistorical(text);
+                    saveFitted(trained);
+                    runOnUiThread(()->{
+                        historyCsv.setText(text.length()<150000?text:"");
+                        modelInfo.setText("학습 완료: "+displayName+" | 훈련 "+trained.eval.trainRaces+
+                            "경주 / 시간순 검증 "+trained.eval.testRaces+
+                            "경주 | 쌍승 "+trained.eval.exactHits+
+                            " / 삼쌍승 "+trained.eval.tripleHits+" 정확 적중");
+                    });
+                }
+            }catch(Exception e){
+                final String err=e.getMessage()==null?e.getClass().getSimpleName():e.getMessage();
+                runOnUiThread(()->{
+                    if(kind==PICK_RACE_CSV){
+                        fileInfo.setText("CSV 불러오기 실패: "+displayName);
+                        output.setText("파일 착순 계산 중단: "+err);
+                    }else{
+                        modelInfo.setText("학습 중단: "+err+" (기존 학습모델 유지)");
+                    }
+                });
+            }
+        });
+    }
+    private String csvDisplayName(Uri uri){
+        String name=null;
+        try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
+            if(c!=null && c.moveToFirst()){int i=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);if(i>=0)name=c.getString(i);}
+        }catch(Exception ignored){}
+        if(name==null||name.trim().isEmpty())name="selected.csv";
+        return name;
+    }
+    private void saveFitted(RankEngine.Fitted next){
+        StringBuilder s=new StringBuilder();
+        for(int i=0;i<next.weights.length;i++){if(i>0)s.append(",");s.append(next.weights[i]);}
+        getPreferences(MODE_PRIVATE).edit().putString("learnedWeights",s.toString())
+            .putInt("train",next.eval.trainRaces).putInt("test",next.eval.testRaces)
+            .putInt("exact",next.eval.exactHits).putInt("triple",next.eval.tripleHits).apply();
+        fitted=next;
+    }
+
     private void loadRaces(){
         final int ticket=++seq; final String loc=codes[track.getSelectedItemPosition()];
         load.setEnabled(false);analyze.setEnabled(false);output.setText("");message("검빛 출전목록 조회 중...");
