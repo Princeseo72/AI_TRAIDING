@@ -429,10 +429,10 @@ public class MainActivity extends Activity {
             output.setText("계산 중단: 경주 출발시간 경과 또는 출발시각 확인 불가. 사후 착순 유입을 방지합니다.");
             return;
         }
-        // meet=3 KRA may include Yeongcheon races; never combine them with Busan (loc=B) Gumvit.
-        if(loc.equals("B") && !r.venue.isEmpty() && !r.venue.equals("부경") && !r.venue.equals("부산") && !r.venue.equals("부산경남")){
-            output.setText("자료원 혼합 차단: KRA 개최지는 "+r.venue+
-                "입니다. 검빛 부경(loc=B) 자료를 다른 개최지 경주에 잘못 적용하지 않습니다.");
+        // Meet 3 is the official 영남 group: BOTH 부경 and 영천 are valid.
+        // Never reject 영천 just because Gumvit's URL uses loc=B.
+        if(!YeongnamPolicy.accepts(loc,r.venue)){
+            output.setText("경주지역 불일치: "+loc+" / "+r.venue);
             return;
         }
         analyze.setEnabled(false);load.setEnabled(false);output.setText("");message(r+" 데이터 수집 중...");
@@ -482,26 +482,32 @@ public class MainActivity extends Activity {
                 }
                 if(runners.size()!=officialCount || runners.size()<3)
                     throw new IllegalStateException("확정 출전두수 불일치");
-                // Cross-check names and numbers to prevent wrongly joining histories.
+                // KRA identity wins. Different Gumvit runners mean stale/different card:
+                // do NOT abort valid 영천 races and do NOT import mismatched numbers.
+                int matched=YeongnamPolicy.matchedRunners(runners,gumvitRunners);
+                boolean gumvitAligned=gumvitRunners.size()>0 &&
+                    matched>=Math.min(3,Math.min(runners.size(),gumvitRunners.size()));
+                if(!gumvitAligned && gumvitRunners.size()>0)
+                    sources.append("검빛 출마표 미일치("+matched+"/"+gumvitRunners.size()+"두) — 해당 목록·조교/진료 제외, ");
                 for(Horse official:runners)for(Horse g:gumvitRunners){
-                    if(official.no!=g.no)continue;
-                    if(!official.name.equals(g.name))
-                        throw new IllegalStateException("마번 "+official.no+" KRA/검빛 마명 불일치");
+                    if(official.no!=g.no||!official.name.equals(g.name))continue;
                     if(official.rating==0&&g.rating>0)official.rating=g.rating;
                     if(Double.isNaN(official.weight))official.weight=g.weight;
                 }
                 presentation.stage(58,"3/6 · KRA·검빛 기록 교차확인");
-                if(gumvitDetail!=null){popularity(gumvitDetail,runners);}
+                if(gumvitAligned&&gumvitDetail!=null){popularity(gumvitDetail,runners);}
                 try{
                     records(doc(detail(loc,r,"chulma_record.html")),runners,r.distance,r.date);
                     sources.append("검빛 역대/최근기록, ");
                 }catch(Exception ex){sources.append("검빛 주파기록 불가(").append(ex.getClass().getSimpleName()).append("), ");}
                 try{
+                    if(!gumvitAligned)throw new IllegalStateException("검빛 출마표 일치 확인 부족");
                     Map<Integer,Double> workload=ConditionData.training(doc(detail(loc,r,"train_view.html")),r.date);
                     for(Horse h:runners)if(workload.containsKey(h.no))h.training14=workload.get(h.no);
                     if(!workload.isEmpty())sources.append("조교기록, ");
                 }catch(Exception ignored){}
                 try{
+                    if(!gumvitAligned)throw new IllegalStateException("검빛 출마표 일치 확인 부족");
                     Map<Integer,Double> vet=ConditionData.veterinary(doc(detail(loc,r,"medicalAndEquipment.html")),r.date);
                     for(Horse h:runners)if(vet.containsKey(h.no))h.vetRisk=vet.get(h.no);
                     if(!vet.isEmpty())sources.append("진료이력, ");
