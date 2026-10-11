@@ -47,7 +47,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: cd krace && adb install -r app/build/outputs/apk/debug/app-debug.apk && python3 qa/run_csv_file_proof.py
+          script: cd krace && adb install -r app/build/outputs/apk/debug/app-debug.apk && python3 qa/run_csv_file_proof.py && python3 qa/run_kra_online_proof.py
       - name: Upload raw UI screenshots, XML, logcat, and signed APK
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,5 +55,6 @@ jobs:
           name: KRace-CSV-Physical-UI-Verification
           path: |
             krace/qa/proof-csv/
+            krace/qa/proof-kra/
             krace/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
