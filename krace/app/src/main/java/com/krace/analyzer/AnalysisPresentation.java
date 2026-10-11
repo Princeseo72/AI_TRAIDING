@@ -44,7 +44,7 @@ final class AnalysisPresentation {
    phase.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
    body.addView(phase);
    body.addView(text("경주 입력·마필 수집·기록 검증·착순 계산 단계만 표시합니다.\n이 게이지는 적중확률이 아닙니다.",12,MUTED));
-   ScrollView scroll=new ScrollView(activity);scroll.addView(body);
+   ScrollView scroll=new ScrollView(activity);scroll.setBackgroundColor(BG);scroll.setFillViewport(true);scroll.addView(body);
    progressScreen=scroll;activity.setContentView(progressScreen);
    meter.setProgress(4);
  }
