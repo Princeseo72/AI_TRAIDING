@@ -38,23 +38,30 @@ def seek_click(term,key,tries=5):
   scroll()
  return False
 def navigate_file(filename,key):
- # Picker often opens Recent; switch to Downloads if needed.
- for step in range(8):
-  x=snapshot(key+"_"+str(step))
-  if match(x,filename) is not None:
-   tap(match(x,filename));return True
+ # Respect the DocumentsUI navigation drawer. Underlying file rows remain in the
+ # accessibility tree when drawer overlays them, so blindly tapping a row gives a false success.
+ for step in range(9):
+  x=snapshot(key+"_"+str(step));t=txt(x)
+  if "Open from" in t or "Browse" in t and "Downloads" in t:
+   n=match(x,"Downloads")
+   if n is None:n=match(x,"다운로드")
+   if n is not None:tap(n);pause(1);continue
+   adb("shell","input","keyevent","4");pause();continue
+  n=match(x,filename)
+  if n is not None:
+   tap(n);pause(2)
+   y=snapshot(key+"_clicked_"+str(step));text=txt(y)
+   if "KRace" in text or "KRACE" in text or "분석 결과" in text:
+    return True
+   # If DocumentsUI is still foreground, keep trying rather than claiming it was selected.
+   continue
   if step==0:
-   n=match(x,"다운로드") or match(x,"Downloads")
-   if n is not None:tap(n);continue
-  # Open left navigation drawer from top edge on DocumentsUI
-  if step==1:
-   adb("shell","input","swipe","5","340","410","340","380");pause()
-  n=match(x,"다운로드")
-  if n is None:n=match(x,"Downloads")
-  if n is not None:tap(n);continue
-  if step==3:
-   adb("shell","input","tap","40","60");pause()
-  if step==6:scroll()
+   adb("shell","input","tap","40","65");pause()
+  else:
+   n=match(x,"Downloads")
+   if n is None:n=match(x,"다운로드")
+   if n is not None:tap(n)
+   else:scroll()
  return False
 def upload_file(filename,text,charset):
  tmp=base/filename;tmp.write_bytes(text.encode(charset))
