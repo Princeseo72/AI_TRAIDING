@@ -28,6 +28,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Generate attached NobleEthan branded icon and splash resources
+        run: python3 tools/build_brand_assets.py
       - name: Install SDK and compile
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true

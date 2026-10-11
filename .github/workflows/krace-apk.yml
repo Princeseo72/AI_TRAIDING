@@ -27,6 +27,8 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Generate attached NobleEthan branded icon and splash resources
+        run: python3 tools/build_brand_assets.py
       - name: Compile and run unit tests
         run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.RankEngineTest --tests com.krace.analyzer.SourceGuardTest --tests com.krace.analyzer.ConditionDataTest --tests com.krace.analyzer.CsvInputTest --tests com.krace.analyzer.CsvFileCodecTest --tests com.krace.analyzer.KraBoardTest --tests com.krace.analyzer.KraMobileTest --tests com.krace.analyzer.PartialRaceTest --tests com.krace.analyzer.ReleaseManifestTest --tests com.krace.analyzer.KraScratchTest --tests com.krace.analyzer.YeongnamPolicyTest :app:assembleDebug --stacktrace
       - name: Live KRA and Gumvit HTML smoke diagnostic
