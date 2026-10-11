@@ -28,7 +28,7 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compile and run unit tests
-        run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.RankEngineTest --tests com.krace.analyzer.SourceGuardTest --tests com.krace.analyzer.ConditionDataTest --tests com.krace.analyzer.CsvInputTest --tests com.krace.analyzer.CsvFileCodecTest --tests com.krace.analyzer.KraBoardTest --tests com.krace.analyzer.KraMobileTest --tests com.krace.analyzer.PartialRaceTest --tests com.krace.analyzer.ReleaseManifestTest :app:assembleDebug --stacktrace
+        run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.RankEngineTest --tests com.krace.analyzer.SourceGuardTest --tests com.krace.analyzer.ConditionDataTest --tests com.krace.analyzer.CsvInputTest --tests com.krace.analyzer.CsvFileCodecTest --tests com.krace.analyzer.KraBoardTest --tests com.krace.analyzer.KraMobileTest --tests com.krace.analyzer.PartialRaceTest --tests com.krace.analyzer.ReleaseManifestTest --tests com.krace.analyzer.KraScratchTest :app:assembleDebug --stacktrace
       - name: Live KRA and Gumvit HTML smoke diagnostic
         continue-on-error: true
         run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.LiveWebSmokeTest --tests com.krace.analyzer.LiveKraIntegrationTest --stacktrace

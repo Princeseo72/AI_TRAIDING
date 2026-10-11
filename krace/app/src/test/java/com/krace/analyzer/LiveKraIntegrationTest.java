@@ -27,4 +27,11 @@ public class LiveKraIntegrationTest {
   System.out.println("KRA Mobile runners="+hs.size()+" first="+(hs.isEmpty()?d.text().substring(0,Math.min(260,d.text().length())):hs.get(0).name));
   assertTrue("KRA mobile current runner card must be accessible",hs.size()>=3);
  }
+
+ @Test public void kraOct11WithdrawalExactlyMatchesHorse()throws Exception{
+  Document d=get(KraScratch.URL);
+  List<KraScratch.Entry> changes=KraScratch.forRace(d,"2026-10-11","S",9);
+  System.out.println("KRA 2026-10-11 Seoul 9R withdrawals="+changes.size());
+  assertTrue("Official change page should list withdrawn No.11",changes.stream().anyMatch(x->x.horseNo==11&&x.name.equals("벌교데스티노")));
+ }
 }
