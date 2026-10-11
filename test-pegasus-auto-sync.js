@@ -1,0 +1,13 @@
+const fs=require('fs');
+const assert=require('assert');
+const app=fs.readFileSync('app/src/main/assets/app.js','utf8');
+const bridge=fs.readFileSync('app/src/main/java/com/kplay/horseracing/StorageBridge.java','utf8');
+assert(app.includes('PEGASUS_RESULT_POLL_MS'));
+assert(app.includes('document.hidden'));
+assert(app.includes('setInterval(pegasusAutoResultSync'));
+assert(app.includes('if(!d.ok||!d.verified)'));
+assert(app.includes('attachRaceResult'));
+assert(app.includes('trainFromResult()'));
+assert(app.includes('applyClosedLoopUpdate'));
+assert(bridge.includes('중복 학습 경주'));
+console.log('Foreground verified-result auto-sync contract PASS');
