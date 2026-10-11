@@ -60,7 +60,7 @@ final class SourceGuard {
          r.recentLate=times.get(times.size()-2);
        }
        Matcher place=Pattern.compile("1:\\d\\d\\.\\d([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])").matcher(text);
-       if(place.find())r.recentPlace=place.group(1).charAt(0)-'①'+1;
+       if(place.find())r.recentPlace=circledRank(place.group(1));
      }else{
        if(times.size()>=2){
          r.best=times.get(times.size()-2);
@@ -72,6 +72,11 @@ final class SourceGuard {
      }
    }
    return out;
+ }
+ static int circledRank(String value){
+   final String[] digits={"①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩","⑪","⑫","⑬","⑭","⑮","⑯","⑰","⑱","⑲","⑳"};
+   for(int i=0;i<digits.length;i++)if(digits[i].equals(value))return i+1;
+   return -1;
  }
  /** Reject past races and unknown start times (no hindsight predictions). */
  static boolean beforeStart(String raceDate,String hhmm,long now){

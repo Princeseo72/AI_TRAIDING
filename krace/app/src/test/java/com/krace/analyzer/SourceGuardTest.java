@@ -34,4 +34,9 @@ public class SourceGuardTest {
   assertFalse(SourceGuard.beforeStart("2026-10-09","",c.getTimeInMillis()));
  }
 
+ @Test public void twoDigitCircledFinishesAreCorrect(){
+   assertEquals(10,SourceGuard.circledRank("⑩"));
+   assertEquals(12,SourceGuard.circledRank("⑫"));
+   assertEquals(1,SourceGuard.circledRank("①"));
+ }
 }
