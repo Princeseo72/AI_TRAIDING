@@ -34,6 +34,8 @@ jobs:
       - name: Live KRA and Gumvit HTML smoke diagnostic
         continue-on-error: true
         run: gradle :app:testDebugUnitTest --tests com.krace.analyzer.LiveWebSmokeTest --tests com.krace.analyzer.LiveKraIntegrationTest --stacktrace
+      - name: Verify user's launcher emblem is packaged
+        run: unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -E 'res/drawable-nodpi-v4/nobleethan.png'
       - name: APK verify
         shell: bash
         run: |
