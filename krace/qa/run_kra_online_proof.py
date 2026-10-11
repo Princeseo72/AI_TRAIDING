@@ -43,6 +43,14 @@ try:
  adb("shell","am","force-stop","com.krace.analyzer")
  adb("shell","am","start","-n","com.krace.analyzer/.MainActivity");time.sleep(2)
  record("Android APK launches",locate(shot("01_launch"),"KRace") is not None,"MainActivity")
+ # Select Seoul: KRA meet=3 may represent Yeongcheon, not Busan, on Sunday.
+ if findtap("영남(부경)","01_track_dropdown"):
+  options=shot("01_track_options")
+  city=locate(options,"서울")
+  if city is not None:tap(city)
+  selected=shot("01_seoul")
+  record("Seoul track selection",locate(selected,"서울") is not None,message(selected))
+ else:record("Track selection failed",False,"영남(부경) dropdown not accessible")
  if findtap("출전표 불러오기","02_load"):
   time.sleep(26);root=shot("03_kra_list");t=message(root)
   matched=re.search(r"KRA 출전확정\s+(\d+)경주",t)
@@ -53,7 +61,8 @@ try:
    if race is not None:
     tap(race);x=shot("04_race_picker")
     desired=locate(x,"9경주")
-    if desired is None:desired=locate(x,"11경주")
+    if desired is None:desired=locate(x,"10경주")
+    if desired is None:desired=locate(x,"8경주")
     if desired is not None:tap(desired)
     else:adb("shell","input","keyevent","4")
     x=shot("05_selected")
