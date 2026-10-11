@@ -53,7 +53,7 @@ try:
  else:record("Track selection failed",False,"영남(부경) dropdown not accessible")
  if findtap("출전표 불러오기","02_load"):
   arc=shot("02a_arc_progress");arctext=message(arc)
-  record("Real KRA loading shows arc analysis progress UI",("ANALYSIS" in arctext and "단계" in arctext),arctext)
+  record("Real KRA loading shows arc analysis progress UI",("ANALYSIS" in arctext and "1/6" in arctext),arctext)
   time.sleep(26);root=shot("03_kra_list");t=message(root)
   matched=re.search(r"KRA 출전확정\s+(\d+)경주",t)
   record("KRA official list parsed in Android",matched is not None and int(matched.group(1))>=1,t)
