@@ -74,6 +74,10 @@ try:
      record("Online runner+record analysis returns explicit result",
        any(word in t for word in ("쌍승","자동 수집 실패","계산 중단")),t)
      record("Exacta and trifecta actually computed","쌍승" in t and "삼쌍승" in t,t)
+     record("Separate result screen with home navigation",("메인화면으로 복귀" in t and "출전표 불러오기" not in t),t)
+     if findtap("메인화면으로 복귀","08_home"):
+      home=shot("09_home_restored")
+      record("Home menu restored after analysis",locate(home,"출전표 불러오기") is not None,message(home))
     else:record("Analyze button found",False,"button absent")
    else:record("Race spinner found",False,t)
  else:record("KRA fetch button found",False,"button absent")

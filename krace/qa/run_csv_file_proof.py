@@ -85,7 +85,13 @@ try:
    t=txt(x)
    if "쌍승" not in t:
     scroll(up=False);x=snapshot("05_import_result_scrolled");t=txt(x)
-   record("CSV parsed and exacta/trifecta computed",("불러오기 성공" in t or "CSV 파일:" in t) and "삼쌍승" in t and "쌍승" in t,t)
+   record("CSV parsed and exacta/trifecta computed",("CSV 착순 계산 결과" in t) and "삼쌍승" in t and "쌍승" in t,t)
+   record("Dedicated results-only UI and home button",("메인화면으로 복귀" in t and "출전표 불러오기" not in t),t)
+   if not seek_click("메인화면으로 복귀","05b_return_home"):
+    record("Return to main screen",False,"main button not found")
+   else:
+    x=snapshot("05c_home_restored")
+    record("Return to main screen",("출전표 불러오기" in txt(x)),txt(x))
  # Invalid outcome-containing CSV must be explicitly blocked with fresh failure, no old ranking.
  if seek_click("경주 CSV 파일 선택","06_invalid_picker"):
   chosen=navigate_file("krace_qa_invalid.csv","07_invalid_picker")
@@ -96,7 +102,7 @@ try:
     for _ in range(5):scroll(up=False)
     x=snapshot("08_invalid_scrolled");t=txt(x)
    record("Outcome leakage blocked; old recommendation cleared",
-      "착순" in t and "중단" in t and "쌍승 1 → 2" not in t,t)
+      "착순" in t and ("중단" in t or "검증 실패" in t) and "쌍승 1 → 2" not in t,t)
  else:record("Invalid CSV picker access",False,"open button not found")
 except Exception as ex:
  record("Script exception",False,repr(ex))
