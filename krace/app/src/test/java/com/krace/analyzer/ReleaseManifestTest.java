@@ -4,7 +4,7 @@ import static org.junit.Assert.*;
 public class ReleaseManifestTest {
  private String csv="relative_path,size,sha256,category,version,required_by,distribution_action\n"+
   "ledger/actual_results.jsonl,6896,353416d0e3fdf5faaae18c6ce52a4ccba23db48bdd27b45386d0bcbc604498f6,INITIAL_SEED,,PEGASUS_RUNTIME,INSTALL_OR_PRESERVE\n"+
-  "ledger/beta_all.npy,184,fa4a2294a7369229eb60a7f9adfc634892a09a300777786d1f847930e085dc7,INITIAL_SEED,,PEGASUS_RUNTIME,INSTALL_OR_PRESERVE\n";
+  "ledger/beta_all.npy,184,fa4a2294a7369229eb60a7f9adfc634892a09a300777786d1f847930e085dc7f,INITIAL_SEED,,PEGASUS_RUNTIME,INSTALL_OR_PRESERVE\n";
  @Test public void reportsManifestNotRunners(){
   assertTrue(ReleaseManifest.isManifest(csv));
   ReleaseManifest.Receipt r=ReleaseManifest.inspect(csv);
