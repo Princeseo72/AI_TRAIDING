@@ -38,9 +38,9 @@ public class MainActivity extends Activity {
     private final String[] codes={"B","S","J"};
     private int seq=0;
     static class Race {
-        String date,grade,region,startTime="";int no,distance,count;
-        Race(String d,int n,String g,int m,int c,String l){date=d;no=n;grade=g;distance=m;count=c;region=l;}
-        public String toString(){return date+"  "+no+"경주  "+distance+"m  "+count+"두  "+grade;}
+        String date,grade,region,startTime="",venue="",source="검빛";int no,distance,count,published;
+        Race(String d,int n,String g,int m,int c,String l){date=d;no=n;grade=g;distance=m;count=c;published=c;region=l;}
+        public String toString(){return date+"  "+no+"경주  "+distance+"m  "+count+"두  "+grade+"  ["+source+"]";}
     }
     static class Horse {
         int no,rating,starts=-1,wins=-1;
@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
     private Button button(String s){Button b=new Button(this);b.setText(s);return b;}
     private void message(String s){runOnUiThread(()->status.setText(s));}
     private Document doc(String url)throws Exception{
-        if(!(url.startsWith("https://www.gumvit.com/")||url.startsWith("https://race.kra.co.kr/")))
+        if(!(url.startsWith("https://www.gumvit.com/")||url.startsWith("https://race.kra.co.kr/")||url.startsWith("https://m.kra.co.kr/")))
             throw new Exception("미허용 사이트");
         return Jsoup.connect(url).timeout(18000).maxBodySize(1500000)
            .userAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36")
@@ -206,7 +206,12 @@ public class MainActivity extends Activity {
     }
     private String calculate(ArrayList<Horse> hs,int expected)throws Exception{
         if(expected>0&&hs.size()!=expected)throw new Exception("출전마 누락 "+hs.size()+"/"+expected+"두");
-        RankEngine.Prediction p=RankEngine.predict(convert(hs,"live"),fitted==null?RankEngine.PRIOR:fitted.weights);
+        RankEngine.Race data=convert(hs,"live");
+        boolean partial=false;
+        for(RankEngine.Runner h:data.runners)
+            if(Double.isNaN(h.avg)&&Double.isNaN(h.best)&&Double.isNaN(h.recent))partial=true;
+        RankEngine.Prediction p=partial?RankEngine.predictPartial(data,fitted==null?RankEngine.PRIOR:fitted.weights):
+            RankEngine.predict(data,fitted==null?RankEngine.PRIOR:fitted.weights);
         return RankEngine.summary(p,fitted!=null,fitted==null?null:fitted.eval);
     }
     private void restoreModel(){
@@ -320,35 +325,46 @@ public class MainActivity extends Activity {
         fitted=next;
     }
 
+
     private void loadRaces(){
         final int ticket=++seq; final String loc=codes[track.getSelectedItemPosition()];
-        load.setEnabled(false);analyze.setEnabled(false);output.setText("");message("검빛 출전목록 조회 중...");
+        load.setEnabled(false);analyze.setEnabled(false);output.setText("");message("KRA 공식 출전표 조회 중...");
         pool.execute(()->{
+            ArrayList<Race> found=new ArrayList<>();String note="";
             try{
-                ArrayList<Race> a=list(doc(base(loc)),loc);
-                if(a.isEmpty())throw new Exception("검빛 출전목록 파싱 실패");
-                Collections.sort(a,(x,y)->{int c=y.date.compareTo(x.date);return c!=0?c:x.no-y.no;});
-                ArrayList<Race> today=new ArrayList<>();
-                for(Race r:a)if(r.date.equals(kstDate()))today.add(r);
-                final ArrayList<Race> display=today;
-                runOnUiThread(()->{
-                    if(seq!=ticket)return;
-                    races.clear();races.addAll(display);
-                    raceSpinner.setAdapter(new ArrayAdapter<Race>(this,android.R.layout.simple_spinner_dropdown_item,races));
-                    analyze.setEnabled(!races.isEmpty());load.setEnabled(true);
-                    status.setText(races.isEmpty()?"검빛 접속 성공, 당일 출전 목록 없음":"검빛 당일 출전목록 "+races.size()+"경주 확인");
-                });
-            }catch(Exception ex){
-                String fallback="";
+                Document official=doc(kra(loc));
+                for(KraBoard.RaceLine kr:KraBoard.parse(official,kstDate())){
+                    Race x=new Race(kr.date,kr.race,kr.grade,kr.distance,kr.starters,loc);
+                    x.published=kr.published;x.startTime=kr.time;x.venue=kr.venue;x.source="KRA";
+                    found.add(x);
+                }
+                note="KRA 출전확정 "+found.size()+"경주";
+            }catch(Exception ex){note="KRA 목록 조회 실패: "+ex.getMessage();}
+            if(found.isEmpty()){
                 try{
-                    Document official=doc(kra(loc));
-                    fallback=official.text().contains("출전")?"KRA 공식 페이지 접속 확인":"KRA 응답 수신";
-                }catch(Exception e){fallback="KRA 조회도 실패: "+e.getMessage();}
-                final String f=fallback,err=ex.getMessage();
-                runOnUiThread(()->{if(seq!=ticket)return;load.setEnabled(true);
-                    status.setText("검빛 조회 실패: "+err+"\n"+f+"\nKRA 상세 자동 해석은 아직 지원하지 않습니다. 검증된 CSV 입력을 사용하세요.");});
+                    for(Race x:list(doc(base(loc)),loc))if(x.date.equals(kstDate()))found.add(x);
+                    note+=" / 검빛 경주목록 "+found.size()+"경주";
+                }catch(Exception ex){note+=" / 검빛 실패: "+ex.getMessage();}
             }
+            found.sort((a,b)->{int c=a.date.compareTo(b.date);return c!=0?c:a.no-b.no;});
+            final ArrayList<Race> all=found;final String statusMessage=note;
+            runOnUiThread(()->{
+                if(seq!=ticket)return;
+                races.clear();races.addAll(all);
+                raceSpinner.setAdapter(new ArrayAdapter<Race>(this,android.R.layout.simple_spinner_dropdown_item,races));
+                load.setEnabled(true);analyze.setEnabled(!races.isEmpty());
+                status.setText(races.isEmpty()?"당일 출전표 없음/조회 실패: "+statusMessage:statusMessage+
+                    "\n경주별 실제 출전두수를 사용하며, 분석 중 추가정보를 가져옵니다.");
+            });
         });
+    }
+    private ArrayList<Horse> officialMobileRunners(Race r)throws Exception{
+        Document page=doc(KraMobile.url(r.region,r.date,r.no));
+        ArrayList<Horse> result=new ArrayList<>();
+        for(KraMobile.Horse h:KraMobile.parse(page,r.date,r.no)){
+            Horse x=new Horse(h.no,h.name,h.rating,h.weight,h.jockey);result.add(x);
+        }
+        return result;
     }
     private void analyzeRace(){
         if(races.isEmpty())return;
@@ -356,42 +372,93 @@ public class MainActivity extends Activity {
         final String loc=codes[track.getSelectedItemPosition()];
         final int ticket=++seq;
         if(!SourceGuard.beforeStart(r.date,r.startTime,System.currentTimeMillis())){
-            output.setText("계산 중단: 경주 출발시간 경과 또는 시각 검증 실패. 종료 경주 사후기록이 예측에 섞이는 것을 차단합니다.");
+            output.setText("계산 중단: 경주 출발시간 경과 또는 출발시각 확인 불가. 사후 착순 유입을 방지합니다.");
             return;
         }
-        analyze.setEnabled(false);load.setEnabled(false);output.setText("");message(r+" 분석 중...");
+        analyze.setEnabled(false);load.setEnabled(false);output.setText("");message(r+" 데이터 수집 중...");
         pool.execute(()->{
             String result;
+            StringBuilder sources=new StringBuilder("출처: ");
             try{
-                Document info=doc(detail(loc,r,"chulma_detail.html"));
-                ArrayList<Horse> hs=entries(info);
-                if(hs.size()!=r.count)throw new Exception("검빛 출전마 파싱 누락 "+hs.size()+"/"+r.count);
-                popularity(info,hs);
-                records(doc(detail(loc,r,"chulma_record.html")),hs,r.distance,r.date);
-                // Public condition reports; unavailable pages stay missing, not guessed.
+                // For KRA race schedules, use live official actual count, not the published size.
+                int officialCount=r.count;
+                if(r.source.equals("KRA")){
+                    KraBoard.RaceLine confirmed=KraBoard.find(doc(kra(loc)),r.date,r.no);
+                    if(confirmed==null)throw new IllegalStateException("KRA 출전표에서 해당 경주 재확인 실패");
+                    officialCount=confirmed.starters;
+                    if(!confirmed.time.equals(r.startTime))throw new IllegalStateException("KRA 출발시각 변경. 출전표 다시 조회 필요");
+                }else{
+                    try {
+                        KraBoard.RaceLine confirmed=KraBoard.find(doc(kra(loc)),r.date,r.no);
+                        if(confirmed!=null)officialCount=confirmed.starters;
+                    }catch(Exception ignored){}
+                }
+                // Official KRA detailed runner card first; Gumvit supplements pre-race performance.
+                ArrayList<Horse> runners=new ArrayList<>();
+                try{
+                    runners=officialMobileRunners(r);
+                    if(!runners.isEmpty())sources.append("KRA 모바일 출전마(").append(runners.size()).append("두), ");
+                }catch(Exception ignored){}
+                ArrayList<Horse> gumvitRunners=new ArrayList<>();
+                Document gumvitDetail=null;
+                try{
+                    gumvitDetail=doc(detail(loc,r,"chulma_detail.html"));
+                    gumvitRunners=entries(gumvitDetail);
+                    if(!gumvitRunners.isEmpty())sources.append("검빛 출전마(").append(gumvitRunners.size()).append("두), ");
+                }catch(Exception ignored){}
+                if(runners.isEmpty()){
+                    if(gumvitRunners.size()!=officialCount)
+                        throw new IllegalStateException("KRA 실제 출전 "+officialCount+"두 / 검빛 "+gumvitRunners.size()+
+                        "두. 제외마 식별 실패 — 임의로 제외하지 않고 계산 중단");
+                    runners=gumvitRunners;
+                }else if(runners.size()!=officialCount){
+                    // Some KRA mobile pages can show stale cards; never calculate with wrong runner count.
+                    if(gumvitRunners.size()==officialCount)runners=gumvitRunners;
+                    else throw new IllegalStateException("KRA 출전확정 "+officialCount+"두, 출전마 명단 불일치 (공식 모바일 "+
+                        runners.size()+"두, 검빛 "+gumvitRunners.size()+"두)");
+                }
+                if(runners.size()!=officialCount || runners.size()<3)
+                    throw new IllegalStateException("확정 출전두수 불일치");
+                // Cross-check names and numbers to prevent wrongly joining histories.
+                for(Horse official:runners)for(Horse g:gumvitRunners){
+                    if(official.no!=g.no)continue;
+                    if(!official.name.equals(g.name))
+                        throw new IllegalStateException("마번 "+official.no+" KRA/검빛 마명 불일치");
+                    if(official.rating==0&&g.rating>0)official.rating=g.rating;
+                    if(Double.isNaN(official.weight))official.weight=g.weight;
+                }
+                if(gumvitDetail!=null){popularity(gumvitDetail,runners);}
+                try{
+                    records(doc(detail(loc,r,"chulma_record.html")),runners,r.distance,r.date);
+                    sources.append("검빛 역대/최근기록, ");
+                }catch(Exception ex){sources.append("검빛 주파기록 불가(").append(ex.getClass().getSimpleName()).append("), ");}
                 try{
                     Map<Integer,Double> workload=ConditionData.training(doc(detail(loc,r,"train_view.html")),r.date);
-                    for(Horse h:hs)if(workload.containsKey(h.no))h.training14=workload.get(h.no);
+                    for(Horse h:runners)if(workload.containsKey(h.no))h.training14=workload.get(h.no);
+                    if(!workload.isEmpty())sources.append("조교기록, ");
                 }catch(Exception ignored){}
                 try{
                     Map<Integer,Double> vet=ConditionData.veterinary(doc(detail(loc,r,"medicalAndEquipment.html")),r.date);
-                    for(Horse h:hs)if(vet.containsKey(h.no))h.vetRisk=vet.get(h.no);
+                    for(Horse h:runners)if(vet.containsKey(h.no))h.vetRisk=vet.get(h.no);
+                    if(!vet.isEmpty())sources.append("진료이력, ");
                 }catch(Exception ignored){}
-                // Official starters override published field size; stop rather than guess scratched runner IDs.
-                try{
-                    Integer confirmed=SourceGuard.officialStarters(doc(kra(loc)),r.date,r.no);
-                    if(confirmed!=null&&confirmed!=hs.size())
-                        throw new IllegalStateException("KRA 출전 "+confirmed+"두/검빛 "+hs.size()+"두 불일치. 출전제외 확인 필요");
-                }catch(IllegalStateException ex){throw ex;}
-                 catch(Exception ex){ /* KRA unreachable: Gumvit source remains flagged in report. */ }
-                result="원본: 검빛 / "+r+"\n\n"+calculate(hs,r.count);
+                // Any partial result is clearly labeled; absence of all distinct features blocks ordering.
+                result=sources.toString()+"\n"+r+"\n공식 출전확정 "+officialCount+"두 / 편성 "+
+                    r.published+"두\n\n"+calculate(runners,officialCount);
             }catch(Exception ex){
-                String k="";try{k=doc(kra(loc)).text().contains("출전")?"KRA 접속 확인":"KRA 응답 수신";}catch(Exception e){k="KRA 조회 실패";}
-                result="분석 중단 (데이터 추정·날조 금지)\n"+ex.getMessage()+"\n"+k+"\n필요시 아래 CSV로 원본 기록을 입력하세요.";
+                result="자동 수집 실패/분석 중단\n"+ex.getMessage()+
+                   "\n현재 확보하지 않은 마필 기록을 임의 생성하지 않습니다. CSV 파일 직접 선택도 가능합니다.";
             }
-            final String s=result;runOnUiThread(()->{if(seq==ticket){output.setText(s);analyze.setEnabled(true);load.setEnabled(true);status.setText("분석 처리 종료");}});
+            final String text=result;
+            runOnUiThread(()->{
+                if(seq!=ticket)return;
+                output.setText(text);
+                analyze.setEnabled(true);load.setEnabled(true);
+                status.setText("정보수집 종료 — 결과의 자료 충족도와 경고를 확인하세요.");
+            });
         });
     }
+
     private void manual(){
         // No stale output is retained if validation fails. All manual CSV parsing is pure Java and tested.
         output.setText("");
