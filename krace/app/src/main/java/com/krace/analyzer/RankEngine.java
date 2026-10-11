@@ -34,7 +34,7 @@ public final class RankEngine {
    public final ArrayList<Ticket> exacta=new ArrayList<>(),trifecta=new ArrayList<>();
    public final HashMap<Integer,Double> scores=new HashMap<>();
    public final HashMap<Integer,double[]> contributions=new HashMap<>();
-   public int runnersWithDistance,missingCells;public String warning="";
+   public int runnersWithDistance,missingCells;public boolean partial=false;public String warning="";
  }
  public static class Evaluation{
    public int trainRaces,testRaces,exactHits,tripleHits;
@@ -84,8 +84,9 @@ public final class RankEngine {
    return f;
  }
  /** Each race is normalized independently; the mean of an unknown feature is not asserted to be real. */
- public static double[][] features(Race race){
-   validate(race,false);
+ public static double[][] features(Race race){return features(race,false);}
+ public static double[][] features(Race race,boolean allowPartial){
+   if(allowPartial)validatePartial(race);else validate(race,false);
    int n=race.runners.size();double[][] raw=new double[n][K],out=new double[n][K];
    double fastest=Double.POSITIVE_INFINITY;
    for(Runner h:race.runners)if(good(h.early))fastest=Math.min(fastest,h.early);
@@ -110,10 +111,28 @@ public final class RankEngine {
    }
    return out;
  }
- public static Prediction predict(Race r,double[] w){
+ /** Partial data mode uses only observed features; never invents race times. */
+ public static Prediction predictPartial(Race r,double[] w){return score(r,w,true);}
+ public static Prediction predict(Race r,double[] w){return score(r,w,false);}
+ private static void validatePartial(Race race){
+   if(race==null||race.runners==null||race.runners.size()<3||race.runners.size()>20)
+     throw new IllegalArgumentException("출전마 3~20두 필요");
+   Set<Integer> seen=new HashSet<>();
+   int evidence=0;
+   for(Runner h:race.runners){
+     if(h.no<1||h.no>30||!seen.add(h.no)||h.name==null||h.name.trim().isEmpty())
+       throw new IllegalArgumentException("마번/마명 누락 또는 중복");
+     if(good(h.weight)&&(h.weight<45||h.weight>65))throw new IllegalArgumentException("부담중량 범위 오류");
+     if(h.rating<0||h.rating>150)throw new IllegalArgumentException("레이팅 범위 오류");
+     if(good(h.avg)||good(h.best)||good(h.recent)||h.rating>0||h.starts>0||good(h.weight))evidence++;
+   }
+   if(evidence!=race.runners.size())
+     throw new IllegalArgumentException("출전마 기본 기록 일부 미확보: 임의 순위 생성 금지");
+ }
+ private static Prediction score(Race r,double[] w,boolean partial){
    if(w==null||w.length!=K)throw new IllegalArgumentException("가중치 길이 오류");
-   double[][] x=features(r);
-   Prediction ans=new Prediction();
+   double[][] x=features(r,partial);
+   Prediction ans=new Prediction();ans.partial=partial;
    double sum=0;
    double[] mass=new double[x.length];
    int availableDistance=0;
@@ -127,7 +146,14 @@ public final class RankEngine {
     mass[i]=Math.exp(Math.max(-5,Math.min(5,score)));sum+=mass[i];
    }
    ans.runnersWithDistance=availableDistance;
-   if(ans.missingCells>0)ans.warning="미수집 변수 "+ans.missingCells+"개는 0 기여로 처리. 예측 신뢰도 낮음.";
+   if(partial){
+     // Where no speed data exists, distinguish carefully: provisional ordering only.
+     ans.warning="정보제한 잠정순위: 동일거리 기록 "+availableDistance+"/"+r.runners.size()+
+       "두, 누락값 "+ans.missingCells+"개. 기록 없는 마필은 추정으로 채우지 않음. 실전 적중률 미검증.";
+     double min=Double.POSITIVE_INFINITY,max=Double.NEGATIVE_INFINITY;
+     for(Double xScore:ans.scores.values()){min=Math.min(min,xScore);max=Math.max(max,xScore);}
+     if(max-min<.00001)throw new IllegalArgumentException("마필간 구분 가능한 전개·기록 정보 없음. 잠정순위 생성 금지");
+   }else if(ans.missingCells>0)ans.warning="미수집 변수 "+ans.missingCells+"개는 0 기여로 처리. 예측 신뢰도 낮음.";
    for(int i=0;i<x.length;i++)for(int j=0;j<x.length;j++){
     if(i==j)continue;
     double e=mass[i]/sum * mass[j]/(sum-mass[i]);
@@ -218,6 +244,7 @@ public final class RankEngine {
  public static String summary(Prediction p,boolean trained,Evaluation e){
    StringBuilder s=new StringBuilder();
    if(!trained)s.append("경고: 미학습 임시 가중치. 예측 적중률 검증 안 됨.\n");
+   if(p.partial)s.append("**제한적 자료로 산출한 임시 착순 순위입니다. 예측 정확도 입증 없음.**\n");
    else s.append("과거 경주 시계열 검증: 훈련 ").append(e.trainRaces).append("경주/검증 ").append(e.testRaces)
     .append("경주; 쌍승 ").append(e.exactHits).append("/").append(e.testRaces)
     .append(" 삼쌍승 ").append(e.tripleHits).append("/").append(e.testRaces).append("\n");
