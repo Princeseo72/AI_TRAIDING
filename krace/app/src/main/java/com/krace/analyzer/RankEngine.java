@@ -244,10 +244,10 @@ public final class RankEngine {
  public static String summary(Prediction p,boolean trained,Evaluation e){
    StringBuilder s=new StringBuilder();
    if(!trained)s.append("경고: 미학습 임시 가중치. 예측 적중률 검증 안 됨.\n");
-   if(p.partial)s.append("**제한적 자료로 산출한 임시 착순 순위입니다. 예측 정확도 입증 없음.**\n");
-   else s.append("과거 경주 시계열 검증: 훈련 ").append(e.trainRaces).append("경주/검증 ").append(e.testRaces)
+   else if(e!=null)s.append("과거 경주 시계열 검증: 훈련 ").append(e.trainRaces).append("경주/검증 ").append(e.testRaces)
     .append("경주; 쌍승 ").append(e.exactHits).append("/").append(e.testRaces)
     .append(" 삼쌍승 ").append(e.tripleHits).append("/").append(e.testRaces).append("\n");
+   if(p.partial)s.append("**제한적 자료로 산출한 임시 착순 순위입니다. 예측 정확도 입증 없음.**\n");
    s.append("쌍승 ").append(p.exacta.get(0)).append("\n");
    s.append("삼쌍승 ").append(p.trifecta.get(0)).append("\n");
    s.append("삼쌍승 차선 ").append(p.trifecta.get(1)).append("\n");
