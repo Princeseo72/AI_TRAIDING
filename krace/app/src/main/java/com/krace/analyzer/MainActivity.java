@@ -237,15 +237,30 @@ public class MainActivity extends Activity {
     }
     private void trainModel(){
         final String source=historyCsv.getText().toString();
-        modelInfo.setText("과거경주 자료 검증 및 학습 중...");
+        final int ticket=++seq;
+        presentation.progress("과거경주 학습 · 시계열 검증");
+        presentation.stage(35,"2/6 · 학습 CSV 입력 검증");
         pool.execute(()->{
             try{
+                if(ReleaseManifest.isManifest(source))
+                    throw new IllegalArgumentException("이 CSV는 배포 매니페스트입니다. 과거경주별 출전마 기록과 결과가 필요합니다.");
                 RankEngine.Fitted next=RankEngine.fitHistorical(source);
+                presentation.stage(75,"5/6 · 홀드아웃 적중 여부 점검");
+                if(ticket!=seq)return;
                 saveFitted(next);
-                runOnUiThread(()->modelInfo.setText("완료: 훈련 "+next.eval.trainRaces+
-                   "/검증 "+next.eval.testRaces+"경주. 검증 쌍승 "+next.eval.exactHits+
-                   " · 삼쌍승 "+next.eval.tripleHits+" 적중 (과거 데이터에만 해당)"));
-            }catch(Exception ex){runOnUiThread(()->modelInfo.setText("학습 거부: "+ex.getMessage()));}
+                runOnUiThread(()->{
+                    if(ticket!=seq)return;
+                    modelInfo.setText("학습 완료: 훈련 "+next.eval.trainRaces+"경주 / 검증 "+next.eval.testRaces+"경주");
+                    presentation.result("과거 경주 백테스트","훈련 "+next.eval.trainRaces+
+                     "경주\n미사용 검증 "+next.eval.testRaces+"경주\n쌍승 "+next.eval.exactHits+
+                     "회\n삼쌍승 "+next.eval.tripleHits+"회\n※ 과거 표본의 결과입니다.");
+                });
+            }catch(Exception ex){
+                runOnUiThread(()->{
+                    if(ticket!=seq)return;
+                    presentation.result("학습 자료 오류",ex.getMessage()+"\n\n기존 학습모델은 유지했습니다.");
+                });
+            }
         });
     }
 

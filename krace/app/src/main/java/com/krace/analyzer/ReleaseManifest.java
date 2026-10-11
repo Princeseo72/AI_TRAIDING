@@ -9,12 +9,13 @@ public final class ReleaseManifest {
   public final long bytes;
   public final boolean hasPayload=false;
   public final String category;
-  Receipt(int n,long b,String c){entries=n;bytes=b;category=c;}
+  public final boolean matchesAttachedManifest;
+  Receipt(int n,long b,String c,boolean exact){entries=n;bytes=b;category=c;matchesAttachedManifest=exact;}
   public String toString(){
     return "PEGASUS 파일목록 접수 완료\n\n"
     +"검증된 파일 항목: "+entries+"개\n"
     +"목록에 표시된 파일 크기 합계: "+String.format(java.util.Locale.KOREA,"%,d",bytes)+" bytes\n"
-    +"분류: "+category+"\n\n"
+    +"분류: "+category+"\n"+(matchesAttachedManifest?"첨부된 2026-10-11 원본 매니페스트와 해시 일치\n":"별도 매니페스트로 검증됨 (원본 해시는 다름)\n")+"\n"
     +"중요: 이 CSV는 파일의 경로·크기·해시 목록입니다.\n"
     +"실제 DB·JSONL·과거경주 기록 데이터는 이 CSV에 들어 있지 않습니다.\n"
     +"원본 파일들이 없으므로 착순 학습이나 결과 계산에 직접 사용할 수 없습니다.\n"
@@ -50,6 +51,15 @@ public final class ReleaseManifest {
    if(entries==0)type=p[3].trim();entries++;
   }
   if(entries==0)throw new IllegalArgumentException("매니페스트 파일목록 비어 있음");
-  return new Receipt(entries,total,type);
+  boolean exact=false;
+  try{
+   String normalized=csv.replace("\uFEFF","");
+   java.security.MessageDigest d=java.security.MessageDigest.getInstance("SHA-256");
+   byte[] result=d.digest(normalized.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+   StringBuilder hex=new StringBuilder();
+   for(byte b:result)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&0xff));
+   exact=entries==6023&&hex.toString().equals("2acf9b39c3c93d2ac9eb7a2b051d2721223033176b764f7bd97f238eb3ab290a");
+  }catch(Exception e){throw new IllegalArgumentException("매니페스트 해시 검증 실패",e);}
+  return new Receipt(entries,total,type,exact);
  }
 }

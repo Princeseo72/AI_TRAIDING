@@ -34,7 +34,7 @@ public final class RankEngine {
    public final ArrayList<Ticket> exacta=new ArrayList<>(),trifecta=new ArrayList<>();
    public final HashMap<Integer,Double> scores=new HashMap<>();
    public final HashMap<Integer,double[]> contributions=new HashMap<>();
-   public int runnersWithDistance,missingCells;public boolean partial=false;public String warning="";
+   public int runnersWithDistance,missingCells,observedContributors,candidateContributors;public boolean partial=false;public String warning="";
  }
  public static class Evaluation{
    public int trainRaces,testRaces,exactHits,tripleHits;
@@ -141,7 +141,15 @@ public final class RankEngine {
     if(good(h.avg)||good(h.best))availableDistance++;
     for(int j=0;j<K;j++)if(!good(base(h,0)[j]))ans.missingCells++;
     double score=0;double[] parts=new double[K];
-    for(int j=0;j<K;j++){if(!good(w[j])||Math.abs(w[j])>8)throw new IllegalArgumentException("가중치 오류");parts[j]=w[j]*x[i][j];score+=parts[j];}
+    double[] raw=base(h,0);
+    for(int j=0;j<K;j++){
+      if(!good(w[j])||Math.abs(w[j])>8)throw new IllegalArgumentException("가중치 오류");
+      if(Math.abs(w[j])>1e-8){
+        ans.candidateContributors++;
+        if(good(raw[j]))ans.observedContributors++;
+      }
+      parts[j]=w[j]*x[i][j];score+=parts[j];
+    }
     ans.scores.put(h.no,score);ans.contributions.put(h.no,parts);
     mass[i]=Math.exp(Math.max(-5,Math.min(5,score)));sum+=mass[i];
    }
@@ -253,6 +261,9 @@ public final class RankEngine {
    s.append("삼쌍승 차선 ").append(p.trifecta.get(1)).append("\n");
    s.append("분석 항목: 평균/최근/최고/종반/초반/선행경합/종반감속/레이팅/중량/승률/공백/최근착순/조교량/진료/기수성적\n");
    if(!p.warning.isEmpty())s.append(p.warning).append("\n");
+   s.append("유효 관측값: ").append(p.observedContributors).append("/").append(p.candidateContributors)
+   .append(" (현재 계수가 0인 신호 제외)\n");
+   s.append("거리 최고/평균 기록 확보: ").append(p.runnersWithDistance).append("두\n");
    s.append("각 마번 변수별 기여값:\n");
    ArrayList<Integer> order=new ArrayList<>(p.scores.keySet());
    order.sort((a,b)->Double.compare(p.scores.get(b),p.scores.get(a)));
