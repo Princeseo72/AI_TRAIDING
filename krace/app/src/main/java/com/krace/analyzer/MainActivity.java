@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
     static class Race {
         String date,grade,region,startTime="",venue="",source="검빛";int no,distance,count,published;
         Race(String d,int n,String g,int m,int c,String l){date=d;no=n;grade=g;distance=m;count=c;published=c;region=l;}
-        public String toString(){return date+"  "+no+"경주  "+distance+"m  "+count+"두  "+grade+"  ["+source+"]";}
+        public String toString(){return date+" "+(venue.isEmpty()?"":venue+" ")+no+"경주  "+distance+"m  "+count+"두  "+grade+" ["+source+"]";}
     }
     static class Horse {
         int no,rating,starts=-1,wins=-1;
@@ -373,6 +373,12 @@ public class MainActivity extends Activity {
         final int ticket=++seq;
         if(!SourceGuard.beforeStart(r.date,r.startTime,System.currentTimeMillis())){
             output.setText("계산 중단: 경주 출발시간 경과 또는 출발시각 확인 불가. 사후 착순 유입을 방지합니다.");
+            return;
+        }
+        // meet=3 KRA may include Yeongcheon races; never combine them with Busan (loc=B) Gumvit.
+        if(loc.equals("B") && !r.venue.isEmpty() && !r.venue.equals("부경") && !r.venue.equals("부산") && !r.venue.equals("부산경남")){
+            output.setText("자료원 혼합 차단: KRA 개최지는 "+r.venue+
+                "입니다. 검빛 부경(loc=B) 자료를 다른 개최지 경주에 잘못 적용하지 않습니다.");
             return;
         }
         analyze.setEnabled(false);load.setEnabled(false);output.setText("");message(r+" 데이터 수집 중...");
