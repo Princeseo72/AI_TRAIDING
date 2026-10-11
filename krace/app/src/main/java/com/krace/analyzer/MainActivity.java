@@ -402,10 +402,20 @@ public class MainActivity extends Activity {
             });
         });
     }
-    private ArrayList<Horse> officialMobileRunners(Race r)throws Exception{
+    private ArrayList<Horse> officialMobileRunners(Race r,int expected)throws Exception{
         Document page=doc(KraMobile.url(r.region,r.date,r.no));
+        List<KraMobile.Horse> source=KraMobile.parse(page,r.date,r.no);
+        if(source.size()>expected){
+            // Only KRA official horse withdrawal bulletin is authorized to remove a runner.
+            try {
+                Document changes=doc(KraScratch.URL);
+                List<KraScratch.Entry> notices=KraScratch.forRace(changes,r.date,r.region,r.no);
+                ArrayList<KraMobile.Horse> corrected=KraScratch.reconcile(source,notices,expected);
+                if(corrected.size()==expected)source=corrected;
+            }catch(Exception ignored){ /* Keep the unmodified roster; caller will safely reject mismatch. */ }
+        }
         ArrayList<Horse> result=new ArrayList<>();
-        for(KraMobile.Horse h:KraMobile.parse(page,r.date,r.no)){
+        for(KraMobile.Horse h:source){
             Horse x=new Horse(h.no,h.name,h.rating,h.weight,h.jockey);result.add(x);
         }
         return result;
@@ -449,7 +459,7 @@ public class MainActivity extends Activity {
                 // Official KRA detailed runner card first; Gumvit supplements pre-race performance.
                 ArrayList<Horse> runners=new ArrayList<>();
                 try{
-                    runners=officialMobileRunners(r);
+                    runners=officialMobileRunners(r,officialCount);
                     if(!runners.isEmpty())sources.append("KRA 모바일 출전마(").append(runners.size()).append("두), ");
                 }catch(Exception ignored){}
                 ArrayList<Horse> gumvitRunners=new ArrayList<>();
