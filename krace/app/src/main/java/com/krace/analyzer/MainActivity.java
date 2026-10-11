@@ -73,6 +73,9 @@ public class MainActivity extends Activity {
         Button picker=button("📂 경주 CSV 파일 선택·즉시 착순 계산");box.addView(picker);
         fileInfo=label("선택된 CSV 파일 없음",12,0xffb5cee9);box.addView(fileInfo);
         picker.setOnClickListener(v->openCsvPicker(PICK_RACE_CSV));
+        Button manifestPicker=button("📁 PEGASUS 파일목록 CSV 접수");
+        manifestPicker.setOnClickListener(v->openCsvPicker(PICK_RACE_CSV));
+        box.addView(manifestPicker);
         Button manual=button("붙여넣은 CSV 검증·계산");box.addView(manual);
         box.addView(label("과거경주 CSV: 파일 선택 또는 붙여넣기 (최소 40경주)",16,0xffd9e6ff));
         historyCsv=new EditText(this);historyCsv.setTextColor(Color.WHITE);historyCsv.setHintTextColor(0xff8b9ab1);
