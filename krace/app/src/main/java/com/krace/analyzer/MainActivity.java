@@ -55,7 +55,7 @@ public class MainActivity extends Activity {
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(24,22,24,22);box.setBackgroundColor(Color.rgb(12,20,33));scroll.addView(box);
         TextView header=label("KRace | 출전마 착순 분석",23,0xfff3f7ff);box.addView(header);
-        box.addView(label("검빛 1차 · 실패 시 KRA 확인 · 기록 부족 시 계산 차단",12,0xffadbed4));
+        box.addView(label("KRA 출전확정 → 검빛 과거기록 보강 → 착순 추론 (자료부족 시 잠정표시)",12,0xffadbed4));
         track=new Spinner(this);track.setBackgroundColor(0xffcbd8f2);
         ArrayAdapter<String> places=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,
             new String[]{"영남(부경)","서울","제주"});track.setAdapter(places);box.addView(track);
