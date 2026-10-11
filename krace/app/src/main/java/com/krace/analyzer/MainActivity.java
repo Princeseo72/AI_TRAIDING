@@ -332,6 +332,7 @@ public class MainActivity extends Activity {
                             "경주 / 검증 "+trained.eval.testRaces+"경주\n쌍승 "+trained.eval.exactHits+
                             "회 / 삼쌍승 "+trained.eval.tripleHits+"회 적중\n※ 과거 표본 검증이며 향후 적중 보장은 아닙니다.");
                     });
+                }
             }catch(Exception e){
                 final String err=e.getMessage()==null?e.getClass().getSimpleName():e.getMessage();
                 runOnUiThread(()->{
