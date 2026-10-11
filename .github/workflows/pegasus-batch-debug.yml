@@ -28,7 +28,7 @@ jobs:
           mkdir -p diagnostics
           set +e
           failed=0
-          for test in test-analysis.js test-exclusion.js test-runner-guard.js test-ml.js test-ml-schema.js test-result-learning.js test-learning-runtime.js test-fix-contract.js test-pegasus-final-engine.js test-pegasus-app-integration.js test-pegasus-closed-loop.js test-all-go.js; do
+          for test in test-analysis.js test-exclusion.js test-runner-guard.js test-ml.js test-ml-schema.js test-result-learning.js test-learning-runtime.js test-fix-contract.js test-pegasus-final-engine.js test-pegasus-app-integration.js test-pegasus-closed-loop.js test-pegasus-auto-sync.js test-all-go.js; do
             echo "== $test =="
             node "$test" > "diagnostics/${test}.log" 2>&1
             status=$?
