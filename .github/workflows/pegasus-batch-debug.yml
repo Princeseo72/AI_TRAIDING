@@ -1,0 +1,64 @@
+name: PEGASUS Batch Debug
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 11 * * 5,6,0'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Run batch diagnostics
+        shell: bash
+        run: |
+          mkdir -p diagnostics
+          set +e
+          failed=0
+          for test in test-analysis.js test-exclusion.js test-runner-guard.js test-ml.js test-ml-schema.js test-result-learning.js test-learning-runtime.js test-fix-contract.js test-pegasus-final-engine.js test-pegasus-app-integration.js test-pegasus-closed-loop.js test-all-go.js; do
+            echo "== $test =="
+            node "$test" > "diagnostics/${test}.log" 2>&1
+            status=$?
+            echo "$test: $status" | tee -a diagnostics/summary.txt
+            if [ "$status" -ne 0 ]; then failed=1; fi
+          done
+          gradle --no-daemon :app:testDebugUnitTest > diagnostics/unit-tests.log 2>&1
+          status=$?
+          echo "unit-tests: $status" | tee -a diagnostics/summary.txt
+          if [ "$status" -ne 0 ]; then failed=1; fi
+          gradle --no-daemon :app:assembleDebug > diagnostics/apk-build.log 2>&1
+          status=$?
+          echo "apk-build: $status" | tee -a diagnostics/summary.txt
+          if [ "$status" -ne 0 ]; then failed=1; fi
+          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            unzip -t app/build/outputs/apk/debug/app-debug.apk > diagnostics/apk-integrity.log 2>&1
+            sha256sum app/build/outputs/apk/debug/app-debug.apk > diagnostics/apk-sha256.txt
+          fi
+          exit "$failed"
+      - name: Upload diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pegasus-batch-diagnostics
+          path: diagnostics/
+          if-no-files-found: warn
+      - name: Upload debug APK if present
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pegasus-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: ignore
