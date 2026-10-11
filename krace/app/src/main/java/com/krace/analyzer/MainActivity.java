@@ -24,10 +24,11 @@ import java.text.SimpleDateFormat;
 public class MainActivity extends Activity {
     private final ExecutorService pool=Executors.newSingleThreadExecutor();
     private static final int PICK_RACE_CSV=1901, PICK_HISTORY_CSV=1902;
-    private static final int MAX_RACE_FILE_BYTES=512*1024;
+    private static final int MAX_RACE_FILE_BYTES=3*1024*1024;
     private static final int MAX_HISTORY_FILE_BYTES=5*1024*1024;
     private TextView fileInfo;
     private ScrollView screenScroll;
+    private AnalysisPresentation presentation;
     private Spinner track,raceSpinner;
     private TextView status,output;
     private EditText csv, historyCsv;
@@ -86,6 +87,7 @@ public class MainActivity extends Activity {
         restoreModel();
         box.addView(label("※ 과거 경주를 학습하지 않은 결과는 신뢰성 없는 시험용 순위입니다. 실전 금전 베팅 근거로 사용하지 마세요.",11,0xffd3b47e));
         setContentView(scroll);
+        presentation=new AnalysisPresentation(this,scroll);
         load.setOnClickListener(v->loadRaces());
         analyze.setOnClickListener(v->analyzeRace());
         manual.setOnClickListener(v->manual());
@@ -266,44 +268,63 @@ public class MainActivity extends Activity {
         final int kind=requestCode;
         final String displayName=csvDisplayName(uri);
         // Prevent stale suggestions and previous calculations being confused with this import.
+        final int request=++seq;
         if(kind==PICK_RACE_CSV){output.setText("");csv.setText("");fileInfo.setText("CSV 검사 중: "+displayName);}
         else modelInfo.setText("과거 CSV 자료 검사 중: "+displayName);
+        presentation.progress(kind==PICK_RACE_CSV?"파일 기록 검증·착순 계산":"과거경주 학습·검증");
+        presentation.stage(8,"1/6 · 선택한 파일 읽는 중");
         pool.execute(()->{
             try{
                 String text=CsvFileCodec.readCsv(getContentResolver().openInputStream(uri),
                     kind==PICK_RACE_CSV?MAX_RACE_FILE_BYTES:MAX_HISTORY_FILE_BYTES,displayName);
+                presentation.stage(25,"2/6 · 파일 형식·인코딩 확인");
+                if(ReleaseManifest.isManifest(text)){
+                    ReleaseManifest.Receipt receipt=ReleaseManifest.inspect(text);
+                    runOnUiThread(()->{
+                        if(request!=seq)return;
+                        fileInfo.setText("PEGASUS 매니페스트 접수: "+displayName+" | "+receipt.entries+"개 항목");
+                        presentation.stage(100,"6/6 · 매니페스트 검증 완료");
+                        presentation.result("PEGASUS CSV 접수 결과",receipt.toString());
+                    });
+                    return;
+                }
                 if(kind==PICK_RACE_CSV){
+                    presentation.stage(44,"3/6 · 출전마·기록 필드 검증");
                     RankEngine.Race race=CsvInput.parseManual(text);
+                    presentation.stage(70,"4/6 · 출전마 점수·전개 계산");
                     RankEngine.Prediction predicted=RankEngine.predict(race,fitted==null?RankEngine.PRIOR:fitted.weights);
+                    presentation.stage(92,"5/6 · 쌍승·삼쌍승 순열 계산");
                     final String rank=RankEngine.summary(predicted,fitted!=null,fitted==null?null:fitted.eval);
                     // Update the editable area only on success; keep imported content inspectable.
                     runOnUiThread(()->{
+                        if(request!=seq)return;
                         csv.setText(text);
                         fileInfo.setText("불러오기 성공: "+displayName+" | 출전마 "+race.runners.size()+"두 | 누락 신호 "+predicted.missingCells+"개");
-                        output.setText("CSV 파일: "+displayName+" (출처 자체 검증 불가)\n\n"+rank);
-                        screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
+                        presentation.stage(100,"6/6 · 착순 계산 완료");
+                        presentation.result("CSV 착순 계산 결과","파일: "+displayName+" (자료 진위 확인 불가)\n\n"+rank);
                     });
                 }else{
+                    presentation.stage(55,"4/6 · 시간순 학습·백테스트");
                     RankEngine.Fitted trained=RankEngine.fitHistorical(text);
                     saveFitted(trained);
                     runOnUiThread(()->{
+                        if(request!=seq)return;
                         historyCsv.setText(text.length()<150000?text:"");
                         modelInfo.setText("학습 완료: "+displayName+" | 훈련 "+trained.eval.trainRaces+
-                            "경주 / 시간순 검증 "+trained.eval.testRaces+
-                            "경주 | 쌍승 "+trained.eval.exactHits+
-                            " / 삼쌍승 "+trained.eval.tripleHits+" 정확 적중");
+                            "경주 / 검증 "+trained.eval.testRaces+"경주");
+                        presentation.stage(100,"6/6 · 과거 학습 완료");
+                        presentation.result("시간순 백테스트 결과","파일: "+displayName+"\n학습 "+trained.eval.trainRaces+
+                            "경주 / 검증 "+trained.eval.testRaces+"경주\n쌍승 "+trained.eval.exactHits+
+                            "회 / 삼쌍승 "+trained.eval.tripleHits+"회 적중\n※ 과거 표본 검증이며 향후 적중 보장은 아닙니다.");
                     });
-                }
             }catch(Exception e){
                 final String err=e.getMessage()==null?e.getClass().getSimpleName():e.getMessage();
                 runOnUiThread(()->{
-                    if(kind==PICK_RACE_CSV){
-                        fileInfo.setText("CSV 불러오기 실패: "+displayName+"\n사유: "+err+"\n이전 결과 무효화");
-                        output.setText("파일 착순 계산 중단: "+err);
-                        screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
-                    }else{
-                        modelInfo.setText("학습 중단: "+err+" (기존 학습모델 유지)");
-                    }
+                    if(request!=seq)return;
+                    if(kind==PICK_RACE_CSV)fileInfo.setText("CSV 불러오기 실패: "+displayName+" · "+err);
+                    else modelInfo.setText("학습 중단: "+err+" (기존 모델 유지)");
+                    presentation.result("데이터 검증 실패","파일: "+displayName+"\n\n"+err+
+                        "\n\n착순 계산은 수행하지 않았습니다.\n메인으로 복귀해 다시 선택하세요.");
                 });
             }
         });
@@ -329,6 +350,8 @@ public class MainActivity extends Activity {
     private void loadRaces(){
         final int ticket=++seq; final String loc=codes[track.getSelectedItemPosition()];
         load.setEnabled(false);analyze.setEnabled(false);output.setText("");message("KRA 공식 출전표 조회 중...");
+        presentation.progress("KRA 공식 출전표 조회");
+        presentation.stage(12,"1/6 · KRA 경주목록 요청");
         pool.execute(()->{
             ArrayList<Race> found=new ArrayList<>();String note="";
             try{
@@ -339,6 +362,7 @@ public class MainActivity extends Activity {
                     found.add(x);
                 }
                 note="KRA 출전확정 "+found.size()+"경주";
+                presentation.stage(70,"4/6 · 공식 출전시각·두수 검사");
             }catch(Exception ex){note="KRA 목록 조회 실패: "+ex.getMessage();}
             if(found.isEmpty()){
                 try{
@@ -350,6 +374,7 @@ public class MainActivity extends Activity {
             final ArrayList<Race> all=found;final String statusMessage=note;
             runOnUiThread(()->{
                 if(seq!=ticket)return;
+                presentation.home();
                 races.clear();races.addAll(all);
                 raceSpinner.setAdapter(new ArrayAdapter<Race>(this,android.R.layout.simple_spinner_dropdown_item,races));
                 load.setEnabled(true);analyze.setEnabled(!races.isEmpty());
@@ -382,6 +407,8 @@ public class MainActivity extends Activity {
             return;
         }
         analyze.setEnabled(false);load.setEnabled(false);output.setText("");message(r+" 데이터 수집 중...");
+        presentation.progress(r.date+" · "+r.no+"경주 착순 분석");
+        presentation.stage(10,"1/6 · KRA 출전확정 확인");
         pool.execute(()->{
             String result;
             StringBuilder sources=new StringBuilder("출처: ");
@@ -399,6 +426,7 @@ public class MainActivity extends Activity {
                         if(confirmed!=null)officialCount=confirmed.starters;
                     }catch(Exception ignored){}
                 }
+                presentation.stage(35,"2/6 · 공식 출전마·마번 수집");
                 // Official KRA detailed runner card first; Gumvit supplements pre-race performance.
                 ArrayList<Horse> runners=new ArrayList<>();
                 try{
@@ -433,6 +461,7 @@ public class MainActivity extends Activity {
                     if(official.rating==0&&g.rating>0)official.rating=g.rating;
                     if(Double.isNaN(official.weight))official.weight=g.weight;
                 }
+                presentation.stage(58,"3/6 · KRA·검빛 기록 교차확인");
                 if(gumvitDetail!=null){popularity(gumvitDetail,runners);}
                 try{
                     records(doc(detail(loc,r,"chulma_record.html")),runners,r.distance,r.date);
@@ -448,6 +477,7 @@ public class MainActivity extends Activity {
                     for(Horse h:runners)if(vet.containsKey(h.no))h.vetRisk=vet.get(h.no);
                     if(!vet.isEmpty())sources.append("진료이력, ");
                 }catch(Exception ignored){}
+                presentation.stage(80,"4/6 · 선행력·종반·조교 변수 처리");
                 // Any partial result is clearly labeled; absence of all distinct features blocks ordering.
                 result=sources.toString()+"\n"+r+"\n공식 출전확정 "+officialCount+"두 / 편성 "+
                     r.published+"두\n\n"+calculate(runners,officialCount);
@@ -458,26 +488,34 @@ public class MainActivity extends Activity {
             final String text=result;
             runOnUiThread(()->{
                 if(seq!=ticket)return;
-                output.setText(text);
                 analyze.setEnabled(true);load.setEnabled(true);
-                status.setText("정보수집 종료 — 결과의 자료 충족도와 경고를 확인하세요.");
+                status.setText("분석 종료 — 결과는 별도 화면에 표시");
+                presentation.stage(100,"6/6 · 계산 완료");
+                presentation.result(r.date+" · "+r.no+"경주 결과",text);
             });
         });
     }
 
     private void manual(){
+        presentation.progress("직접입력 착순 계산");
+        presentation.stage(44,"3/6 · CSV 기록 검증");
         // No stale output is retained if validation fails. All manual CSV parsing is pure Java and tested.
         output.setText("");
         try{
             RankEngine.Race race=CsvInput.parseManual(csv.getText().toString());
             RankEngine.Prediction p=RankEngine.predict(race,fitted==null?RankEngine.PRIOR:fitted.weights);
-            output.setText("CSV 직접입력 (원본 미확인)\n\n"+
+            presentation.stage(100,"6/6 · 착순 계산 완료");
+            presentation.result("직접입력 착순 계산","CSV 직접입력 (원본 미확인)\n\n"+
                 RankEngine.summary(p,fitted!=null,fitted==null?null:fitted.eval));
-            screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
         }catch(Exception ex){
-            output.setText("CSV 계산 불가: "+ex.getMessage());
-            screenScroll.post(()->screenScroll.smoothScrollTo(0,0));
+            presentation.result("CSV 검증 오류","CSV 계산 불가: "+ex.getMessage());
         }
+    }
+    @Override public void onBackPressed(){
+        if(presentation!=null&&presentation.isOverlay()){
+            seq++;load.setEnabled(true);analyze.setEnabled(!races.isEmpty());
+            presentation.home();status.setText("메인 화면으로 복귀");
+        }else super.onBackPressed();
     }
     @Override protected void onDestroy(){seq++;pool.shutdownNow();super.onDestroy();}
 }
